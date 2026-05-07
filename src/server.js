@@ -1,10 +1,12 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 require('dotenv').config();
 
-// Routes
+// Routes & Config
 const authRoutes = require('./routes/auth.routes');
+const swaggerSpecs = require('./config/swagger');
 
 // Initialize Express app
 const app = express();
@@ -53,11 +55,22 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Swagger API documentation
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpecs, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  })
+);
+
 // Auth routes
 app.use('/api/auth', authRoutes);
 
-// Product routes (placeholder for future)
-// app.use("/api/products", require("./routes/product.routes"));
+// Product routes
+app.use('/api/products', require('./routes/product.routes'));
 
 // Cart routes (placeholder for future)
 // app.use("/api/cart", require("./routes/cart.routes"));
@@ -90,7 +103,10 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err);
 
-  const status = err.status || err.statusCode || 500;
+  const status =
+    err.status ||
+    err.statusCode ||
+    (err.code === 'LIMIT_FILE_SIZE' ? 413 : err.code === 'LIMIT_FILE_COUNT' ? 400 : 500);
   const message = err.message || 'Internal server error';
 
   res.status(status).json({
