@@ -55,11 +55,31 @@ const login = async (email, password) => {
     throw new Error(`Login failed: ${error.message}`);
   }
 
+  // Try to read full profile (including role) from profiles table
+  const { data: profileData, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+
+  if (profileError) {
+    // If profile not found, fallback to basic user info with role from auth user (if any)
+    return {
+      session: data.session,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        role: data.user?.role || null,
+      },
+    };
+  }
+
   return {
     session: data.session,
     user: {
-      id: data.user.id,
+      id: profileData.id,
       email: data.user.email,
+      role: profileData.role,
     },
   };
 };
