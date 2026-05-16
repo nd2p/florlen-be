@@ -158,7 +158,7 @@ const updatePassword = async (newPassword, refreshToken) => {
   const supabaseUser = supabaseAnon;
 
   // First refresh session to get valid tokens
-  const { data: sessionData, error: refreshError } = await supabaseUser.auth.refreshSession({
+  const { error: refreshError } = await supabaseUser.auth.refreshSession({
     refresh_token: refreshToken,
   });
 
@@ -229,10 +229,9 @@ const resetPassword = async (token, newPassword) => {
  * In Supabase, this is primarily a client-side operation
  * Backend just acknowledgments the request
  *
- * @param {string} accessToken - for verification only
  * @returns {void}
  */
-const logout = async (accessToken) => {
+const logout = async () => {
   // Supabase sign out - invalidate the session
   const supabaseUser = supabaseAnon;
   const { error } = await supabaseUser.auth.signOut();

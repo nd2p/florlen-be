@@ -1,11 +1,11 @@
 const {
   listProducts,
   getProductById,
-  uploadProductImages,
   createProduct,
   updateProduct,
   deleteProduct,
 } = require('../services/product.service');
+const { PRODUCT_TYPE } = require('../config/constants');
 
 /**
  * GET /api/products
@@ -37,19 +37,6 @@ const getProduct = async (req, res) => {
 };
 
 /**
- * POST /api/products/images/upload (admin)
- */
-const uploadImages = async (req, res) => {
-  try {
-    const images = await uploadProductImages(req.files || []);
-    res.status(201).json({ images });
-  } catch (error) {
-    console.error('Upload product images error:', error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
-/**
  * POST /api/products (admin)
  */
 const create = async (req, res) => {
@@ -59,18 +46,27 @@ const create = async (req, res) => {
       'name',
       'slug',
       'description',
-      'product_type',
       'base_price',
       'production_days_min',
       'production_days_max',
     ];
 
-    const missing = requiredFields.filter((f) => !(f in req.body));
+    const { product: nestedProduct, images, variants, ...flatPayload } = req.body;
+    const productPayload = {
+      ...flatPayload,
+      ...(nestedProduct && typeof nestedProduct === 'object' && !Array.isArray(nestedProduct)
+        ? nestedProduct
+        : {}),
+    };
+
+    if (!productPayload.product_type) {
+      productPayload.product_type = PRODUCT_TYPE.NORMAL;
+    }
+
+    const missing = requiredFields.filter((f) => !(f in productPayload));
     if (missing.length) {
       return res.status(400).json({ message: `Missing required fields: ${missing.join(', ')}` });
     }
-
-    const { images, variants, ...productPayload } = req.body;
 
     if (!Array.isArray(images) || images.length === 0) {
       return res
@@ -88,11 +84,9 @@ const create = async (req, res) => {
       (img) => !img || typeof img.url !== 'string' || typeof img.storage_path !== 'string'
     );
     if (badImage)
-      return res
-        .status(400)
-        .json({
-          message: 'Each product image must include valid `url` and `storage_path` strings',
-        });
+      return res.status(400).json({
+        message: 'Each product image must include valid `url` and `storage_path` strings',
+      });
 
     const badVariant = variants.find((v) => !v || typeof v.sku_suffix !== 'string');
     if (badVariant)
@@ -114,7 +108,19 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await updateProduct(id, req.body);
+    const { product: nestedProduct, images, variants, ...flatPayload } = req.body;
+    const productPayload = {
+      ...flatPayload,
+      ...(nestedProduct && typeof nestedProduct === 'object' && !Array.isArray(nestedProduct)
+        ? nestedProduct
+        : {}),
+    };
+
+    const product = await updateProduct(id, {
+      product: productPayload,
+      images,
+      variants,
+    });
     res.json({ product });
   } catch (error) {
     console.error('Update product error:', error);
@@ -139,7 +145,6 @@ const remove = async (req, res) => {
 module.exports = {
   getProducts,
   getProduct,
-  uploadImages,
   create,
   update,
   remove,

@@ -69,8 +69,14 @@ app.use(
 // Auth routes
 app.use('/api/auth', authRoutes);
 
+// Upload routes
+app.use('/api/uploads', require('./routes/upload.routes'));
+
 // Product routes
 app.use('/api/products', require('./routes/product.routes'));
+
+// Collection routes
+app.use('/api/collections', require('./routes/collection.routes'));
 
 // Cart routes (placeholder for future)
 // app.use("/api/cart", require("./routes/cart.routes"));
@@ -101,6 +107,10 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   console.error('Error:', err);
 
   const status =

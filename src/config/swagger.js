@@ -91,7 +91,7 @@ const options = {
             },
             product_type: {
               type: 'string',
-              enum: ['ai_base', 'physical', 'digital'],
+              enum: ['normal', 'ai_base'],
             },
             base_price: {
               type: 'number',
@@ -168,11 +168,13 @@ const options = {
   },
   apis: [
     './src/routes/auth.routes.js',
+    './src/routes/upload.routes.js',
     './src/routes/product.routes.js',
     './src/routes/cart.routes.js',
     './src/routes/order.routes.js',
     './src/routes/design.routes.js',
     './src/routes/admin.routes.js',
+    './src/routes/collection.routes.js',
   ],
 };
 

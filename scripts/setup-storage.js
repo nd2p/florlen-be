@@ -4,6 +4,7 @@ const { supabaseAdmin } = require('../src/config/supabase');
 
 const BUCKETS = [
   { id: 'product-images', public: true },
+  { id: 'collection-images', public: true },
   { id: 'mockups', public: true },
   { id: 'reference-uploads', public: false },
   { id: 'blog-assets', public: true },
@@ -13,6 +14,7 @@ const POLICY_SQL = `
 insert into storage.buckets (id, name, public)
 values
   ('product-images', 'product-images', true),
+  ('collection-images', 'collection-images', true),
   ('mockups', 'mockups', true),
   ('reference-uploads', 'reference-uploads', false),
   ('blog-assets', 'blog-assets', true)
@@ -27,6 +29,38 @@ begin
     create policy "Public read product images"
       on storage.objects for select
       using (bucket_id = 'product-images');
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects' and policyname = 'Public read collection images'
+  ) then
+    create policy "Public read collection images"
+      on storage.objects for select
+      using (bucket_id = 'collection-images');
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects' and policyname = 'Admins upload collection images'
+  ) then
+    create policy "Admins upload collection images"
+      on storage.objects for insert
+      with check (
+        bucket_id = 'collection-images'
+        and exists (
+          select 1
+          from public.profiles
+          where id = auth.uid()
+            and role in ('admin', 'super_admin')
+        )
+      );
   end if;
 end $$;
 
@@ -200,6 +234,8 @@ const main = async () => {
         policies: [
           'Public read product images',
           'Admins upload product images',
+          'Public read collection images',
+          'Admins upload collection images',
           'Public read mockups',
           'Admins upload mockups',
           'Users upload own reference images',
