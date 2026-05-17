@@ -5,9 +5,7 @@ const {
   create,
   update,
   remove,
-  addProducts,
-  removeProduct,
-  updateProductSort,
+  syncProducts,
 } = require('../controllers/collection.controller');
 const { authenticate } = require('../middlewares/authenticate');
 const { authorizeAdmin } = require('../middlewares/authorize');
@@ -152,8 +150,8 @@ router.delete('/:id', authenticate, authorizeAdmin, remove);
 /**
  * @swagger
  * /api/collections/{id}/products:
- *   post:
- *     summary: Add products to collection (admin only)
+ *   put:
+ *     summary: Sync products in collection (admin only)
  *     tags: [Collections]
  *     security:
  *       - bearerAuth: []
@@ -169,28 +167,8 @@ router.delete('/:id', authenticate, authorizeAdmin, remove);
  *                 items: { type: string, format: uuid }
  *             required: [product_ids]
  */
-router.post('/:id/products', authenticate, authorizeAdmin, addProducts);
+router.put('/:id/products', authenticate, authorizeAdmin, syncProducts);
 
-/**
- * @swagger
- * /api/collections/{id}/products/{productId}:
- *   delete:
- *     summary: Remove product from collection (admin only)
- *     tags: [Collections]
- *     security:
- *       - bearerAuth: []
- */
-router.delete('/:id/products/:productId', authenticate, authorizeAdmin, removeProduct);
 
-/**
- * @swagger
- * /api/collections/{id}/products/{productId}/sort:
- *   patch:
- *     summary: Update product sort order in collection (admin only)
- *     tags: [Collections]
- *     security:
- *       - bearerAuth: []
- */
-router.patch('/:id/products/:productId/sort', authenticate, authorizeAdmin, updateProductSort);
 
 module.exports = router;

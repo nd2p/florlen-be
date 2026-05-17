@@ -4,9 +4,7 @@ const {
   createCollection,
   updateCollection,
   removeCollection,
-  addProductsToCollection,
-  removeProductFromCollection,
-  updateProductSortOrder,
+  syncProductsInCollection,
 } = require('../services/collection.service');
 
 /**
@@ -124,47 +122,16 @@ const remove = async (req, res) => {
 };
 
 /**
- * POST /api/collections/:id/products
+ * PUT /api/collections/:id/products
  */
-const addProducts = async (req, res) => {
+const syncProducts = async (req, res) => {
   try {
     const { id } = req.params;
     const { product_ids } = req.body;
-    const items = await addProductsToCollection(id, product_ids);
-    res.status(201).json({ items });
+    const items = await syncProductsInCollection(id, product_ids);
+    res.json({ items });
   } catch (error) {
-    console.error('Add products error:', error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
-/**
- * DELETE /api/collections/:id/products/:productId
- */
-const removeProduct = async (req, res) => {
-  try {
-    const { id, productId } = req.params;
-    await removeProductFromCollection(id, productId);
-    res.json({ message: 'Product removed from collection' });
-  } catch (error) {
-    console.error('Remove product error:', error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
-/**
- * PATCH /api/collections/:id/products/:productId/sort
- */
-const updateProductSort = async (req, res) => {
-  try {
-    const { id, productId } = req.params;
-    const { sort_order } = req.body;
-    if (typeof sort_order !== 'number')
-      return res.status(400).json({ message: 'sort_order must be a number' });
-    const item = await updateProductSortOrder(id, productId, sort_order);
-    res.json({ item });
-  } catch (error) {
-    console.error('Update product sort error:', error);
+    console.error('Sync products error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -175,7 +142,5 @@ module.exports = {
   create,
   update,
   remove,
-  addProducts,
-  removeProduct,
-  updateProductSort,
+  syncProducts,
 };

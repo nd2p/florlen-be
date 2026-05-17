@@ -14,7 +14,7 @@ const fetchProductWithRelations = async (id) => {
   return data;
 };
 
-const listProducts = async ({ cursor, limit = 20, type, tag, collection }) => {
+const listProducts = async ({ cursor, limit = 20, type, tag, collection, search }) => {
   let query = supabaseAdmin
     .from('products')
     .select('*, product_images(*), product_variants(*)')
@@ -23,6 +23,7 @@ const listProducts = async ({ cursor, limit = 20, type, tag, collection }) => {
   if (type) query = query.eq('product_type', type);
   if (collection) query = query.eq('collection_id', collection);
   if (tag) query = query.contains('tags', [tag]);
+  if (search) query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
   if (cursor) query = query.gt('id', cursor);
 
   const { data, error } = await query;

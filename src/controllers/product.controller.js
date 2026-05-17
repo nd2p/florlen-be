@@ -12,8 +12,8 @@ const { PRODUCT_TYPE } = require('../config/constants');
  */
 const getProducts = async (req, res) => {
   try {
-    const { cursor, limit, type, tag, collection } = req.query;
-    const result = await listProducts({ cursor, limit, type, tag, collection });
+    const { cursor, limit, type, tag, collection, q } = req.query;
+    const result = await listProducts({ cursor, limit, type, tag, collection, search: q });
     res.json(result);
   } catch (error) {
     console.error('Get products error:', error);
