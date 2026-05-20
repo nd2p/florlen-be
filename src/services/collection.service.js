@@ -49,6 +49,7 @@ const listCollections = async ({
   limit = 20,
   type,
   is_featured,
+  search,
   sort_by = 'sort_order',
 } = {}) => {
   let query = supabaseAdmin
@@ -70,6 +71,7 @@ const listCollections = async ({
     if (String(is_featured) === 'true') query = query.eq('is_featured', true);
     if (String(is_featured) === 'false') query = query.eq('is_featured', false);
   }
+  if (search) query = query.or(`name.ilike.%${search}%,slug.ilike.%${search}%`);
   if (cursor) query = query.gt('id', cursor);
 
   query = query.order(sort_by, { ascending: sort_by === 'sort_order' });

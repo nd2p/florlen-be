@@ -12,8 +12,8 @@ const {
  */
 const getCollections = async (req, res) => {
   try {
-    const { cursor, limit, type, is_featured, sort_by } = req.query;
-    const result = await listCollections({ cursor, limit, type, is_featured, sort_by });
+    const { cursor, limit, type, is_featured, search, sort_by } = req.query;
+    const result = await listCollections({ cursor, limit, type, is_featured, search, sort_by });
     res.json(result);
   } catch (error) {
     console.error('Get collections error:', error);

@@ -62,4 +62,60 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticate };
+/**
+ * Optional authentication middleware.
+ * If a valid Bearer token is present, attaches req.user (same as authenticate).
+ * If no token is provided, sets req.user = null and continues (guest allowed).
+ * If the token is present but invalid, still returns 401.
+ */
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    // No token → guest request, continue without user
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    const supabaseUser = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    });
+
+    const { data, error } = await supabaseUser.auth.getUser();
+    if (error || !data.user) {
+      return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(401).json({ message: 'Unauthorized: User profile not found' });
+    }
+
+    if (!profile.is_active) {
+      return res.status(401).json({ message: 'Unauthorized: User account is inactive' });
+    }
+
+    req.user = {
+      id: data.user.id,
+      email: data.user.email,
+      ...profile,
+    };
+
+    return next();
+  } catch (error) {
+    console.error('Optional auth middleware error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+module.exports = { authenticate, optionalAuthenticate };

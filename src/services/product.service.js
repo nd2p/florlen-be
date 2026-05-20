@@ -393,6 +393,11 @@ const updateProduct = async (id, updateData = {}) => {
 
   const existingProduct = await fetchProductWithRelations(id);
   const targetProductIsActive = productUpdates.is_active ?? existingProduct.is_active ?? true;
+
+  // If reactivating a soft-deleted product, reset deleted_at
+  if (productUpdates.is_active === true && existingProduct.deleted_at) {
+    productUpdates.deleted_at = null;
+  }
   let imageSyncResult = null;
   let variantSyncResult = null;
 

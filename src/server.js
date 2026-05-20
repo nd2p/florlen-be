@@ -26,7 +26,7 @@ app.use(
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
   })
 );
 
@@ -78,8 +78,8 @@ app.use('/api/products', require('./routes/product.routes'));
 // Collection routes
 app.use('/api/collections', require('./routes/collection.routes'));
 
-// Cart routes (placeholder for future)
-// app.use("/api/cart", require("./routes/cart.routes"));
+// Cart routes
+app.use('/api/cart', require('./routes/cart.routes'));
 
 // Order routes (placeholder for future)
 // app.use("/api/orders", require("./routes/order.routes"));
