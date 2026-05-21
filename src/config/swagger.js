@@ -91,7 +91,7 @@ const options = {
             },
             product_type: {
               type: 'string',
-              enum: ['normal', 'ai_base'],
+              enum: ['normal', 'ai_base', 'add_ons'],
             },
             base_price: {
               type: 'number',

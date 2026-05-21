@@ -28,7 +28,7 @@ const router = express.Router();
  *         description: Number of products per page
  *       - name: type
  *         in: query
- *         schema: { type: string, enum: [normal, ai_base] }
+ *         schema: { type: string, enum: [normal, ai_base, add_ons] }
  *         description: Filter by product type
  *       - name: tag
  *         in: query
@@ -106,7 +106,7 @@ router.get('/:id', getProduct);
  *                   slug: { type: string }
  *                   description: { type: string }
  *                   short_description: { type: string }
- *                   product_type: { type: string, enum: [normal, ai_base] }
+ *                   product_type: { type: string, enum: [normal, ai_base, add_ons] }
  *                   base_price: { type: number }
  *                   customization_fee: { type: number }
  *                   production_days_min: { type: integer }
