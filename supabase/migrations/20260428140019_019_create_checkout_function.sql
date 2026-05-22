@@ -69,11 +69,7 @@ BEGIN
     order_number,
     user_id,
     payment_id,
-    order_type,
     status,
-    product_name,
-    product_sku,
-    quantity,
     subtotal,
     discount_amount,
     shipping_fee,
@@ -94,11 +90,7 @@ BEGIN
     v_order_number,
     p_user_id,
     NULL, -- payment_id (will be set after payment)
-    'normal', -- default to normal (can be ai_personalization if cart has design)
     'confirmed',
-    'Florlen Order Items',
-    'ORD-' || v_order_number,
-    v_total_items,
     v_subtotal,
     v_cart.discount_amount,
     0, -- shipping_fee (can be added later)
@@ -121,6 +113,39 @@ BEGIN
     p_customer_note
   )
   RETURNING id INTO v_order_id;
+
+  -- 5b. Create order items from cart items
+  INSERT INTO public.order_items (
+    order_id,
+    product_id,
+    product_name,
+    product_sku,
+    product_image_url,
+    variant_label,
+    design_mockup_url,
+    design_summary,
+    unit_price,
+    customization_fee,
+    quantity,
+    subtotal,
+    item_type
+  )
+  SELECT
+    v_order_id,
+    ci.product_id,
+    ci.product_name,
+    COALESCE(ci.product_snapshot->>'sku', 'N/A'),
+    ci.product_snapshot->>'image_url',
+    ci.product_snapshot->>'variant_label',
+    ci.product_snapshot->>'mockup_image_url',
+    ci.product_snapshot->>'design_summary',
+    ci.unit_price,
+    ci.customization_fee,
+    ci.quantity,
+    ci.line_total,
+    ci.item_type
+  FROM public.cart_items ci
+  WHERE ci.cart_id = p_cart_id;
 
   -- 6. Log order creation
   INSERT INTO public.order_status_logs (order_id, from_status, to_status, change_source)

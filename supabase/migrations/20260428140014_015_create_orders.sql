@@ -5,8 +5,6 @@ CREATE TABLE public.orders (
   order_number          VARCHAR(20)     NOT NULL,
   user_id               UUID            REFERENCES public.profiles(id) ON DELETE SET NULL,
   payment_id            UUID            NOT NULL REFERENCES public.payments(id),
-  cart_item_id          UUID            REFERENCES public.cart_items(id),
-  order_type            TEXT            NOT NULL CHECK (order_type IN ('normal','ai_personalization')),
   -- Status
   status                TEXT            NOT NULL DEFAULT 'confirmed'
                                         CHECK (status IN (
@@ -15,17 +13,7 @@ CREATE TABLE public.orders (
                                           'shipping','completed','cancelled'
                                         )),
   status_updated_at     TIMESTAMPTZ     NOT NULL DEFAULT now(),
-  -- Product snapshot
-  product_name          VARCHAR(255)    NOT NULL,
-  product_sku           VARCHAR(100)    NOT NULL,
-  product_image_url     TEXT,
-  variant_label         VARCHAR(255),
-  design_mockup_url     TEXT,
-  design_summary        JSONB,
   -- Pricing
-  unit_price            NUMERIC(12,2)   NOT NULL,
-  customization_fee     NUMERIC(12,2)   NOT NULL DEFAULT 0,
-  quantity              SMALLINT        NOT NULL DEFAULT 1,
   subtotal              NUMERIC(12,2)   NOT NULL,
   discount_amount       NUMERIC(12,2)   NOT NULL DEFAULT 0,
   shipping_fee          NUMERIC(12,2)   NOT NULL DEFAULT 0,
@@ -92,5 +80,4 @@ CREATE POLICY "Admins manage all orders"
 CREATE INDEX idx_orders_user_status   ON public.orders(user_id, status);
 CREATE INDEX idx_orders_number        ON public.orders(order_number);
 CREATE INDEX idx_orders_status        ON public.orders(status, created_at DESC);
-CREATE INDEX idx_orders_type_status   ON public.orders(order_type, status);
 CREATE INDEX idx_orders_tracking      ON public.orders(tracking_number) WHERE tracking_number IS NOT NULL;

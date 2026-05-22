@@ -81,14 +81,20 @@ app.use('/api/collections', require('./routes/collection.routes'));
 // Cart routes
 app.use('/api/cart', require('./routes/cart.routes'));
 
-// Order routes (placeholder for future)
-// app.use("/api/orders", require("./routes/order.routes"));
+// Address routes
+app.use('/api/addresses', require('./routes/address.routes'));
+
+// Order routes
+app.use('/api/orders', require('./routes/order.routes'));
+
+// Webhook routes (PayOS payment callbacks — no auth)
+app.use('/api/webhooks', require('./routes/webhook.routes'));
 
 // Design routes (placeholder for future)
 // app.use("/api/designs", require("./routes/design.routes"));
 
-// Admin routes (placeholder for future)
-// app.use("/api/admin", require("./routes/admin.routes"));
+// Admin routes
+app.use('/api/admin', require('./routes/admin.routes'));
 
 /**
  * ============================================

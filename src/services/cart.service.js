@@ -260,15 +260,22 @@ const mergeCart = async (userId, sessionId) => {
 
   const userCart = await getOrCreateCart({ userId });
 
-  // Build a map of existing user cart items (product_id+variant_id as key)
+  // Build a map of existing user cart items (product_id+variant_id or ai:design_id as key)
   const existingKeys = new Map(
-    (userCart.cart_items ?? []).map((ci) => [`${ci.product_id}:${ci.variant_id ?? 'none'}`, ci])
+    (userCart.cart_items ?? []).map((ci) => {
+      const key = ci.item_type === 'ai_personalization'
+        ? `ai:${ci.design_id}`
+        : `${ci.product_id}:${ci.variant_id ?? 'none'}`;
+      return [key, ci];
+    })
   );
 
   let merged = 0;
 
   for (const guestItem of guestCart.cart_items) {
-    const key = `${guestItem.product_id}:${guestItem.variant_id ?? 'none'}`;
+    const key = guestItem.item_type === 'ai_personalization'
+      ? `ai:${guestItem.design_id}`
+      : `${guestItem.product_id}:${guestItem.variant_id ?? 'none'}`;
     const existing = existingKeys.get(key);
 
     if (existing) {
@@ -276,26 +283,43 @@ const mergeCart = async (userId, sessionId) => {
       const newQty = existing.quantity + guestItem.quantity;
       const newLineTotal =
         (Number(existing.unit_price) + Number(existing.customization_fee)) * newQty;
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from('cart_items')
         .update({ quantity: newQty, line_total: newLineTotal })
         .eq('id', existing.id);
+      if (updateError) throw new Error(updateError.message);
     } else {
       // Insert as new item in user cart
-      // eslint-disable-next-line no-unused-vars
-      const { id: _guestItemId, cart_id: _guestCartId, added_at: _added, ...rest } = guestItem;
-      await supabaseAdmin.from('cart_items').insert({ ...rest, cart_id: userCart.id });
+      const insertPayload = {
+        cart_id: userCart.id,
+        item_type: guestItem.item_type,
+        product_id: guestItem.product_id,
+        variant_id: guestItem.variant_id || null,
+        quantity: guestItem.quantity,
+        design_id: guestItem.design_id || null,
+        unit_price: guestItem.unit_price,
+        customization_fee: guestItem.customization_fee,
+        line_total: guestItem.line_total,
+        product_name: guestItem.product_name,
+        product_snapshot: guestItem.product_snapshot,
+      };
+      const { error: insertError } = await supabaseAdmin
+        .from('cart_items')
+        .insert(insertPayload);
+      if (insertError) throw new Error(insertError.message);
     }
     merged++;
   }
 
   // Delete the guest cart (cascade deletes remaining cart_items)
-  await supabaseAdmin.from('carts').delete().eq('id', guestCart.id);
+  const { error: deleteError } = await supabaseAdmin.from('carts').delete().eq('id', guestCart.id);
+  if (deleteError) throw new Error(deleteError.message);
 
-  await supabaseAdmin
+  const { error: touchError } = await supabaseAdmin
     .from('carts')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', userCart.id);
+  if (touchError) throw new Error(touchError.message);
 
   return { merged };
 };
