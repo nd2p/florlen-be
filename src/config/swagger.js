@@ -152,6 +152,21 @@ const options = {
             },
           },
         },
+        UserAddress: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            label: { type: 'string', nullable: true, example: 'Home' },
+            is_default: { type: 'boolean' },
+            recipient_name: { type: 'string', example: 'Nguyen Van A' },
+            phone_number: { type: 'string', example: '0987654321' },
+            address_line_1: { type: 'string', example: '123 Nguyen Trai, Ward 2' },
+            city: { type: 'string', example: 'Ho Chi Minh City' },
+            country_code: { type: 'string', example: 'VN' },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
@@ -175,6 +190,7 @@ const options = {
     './src/routes/design.routes.js',
     './src/routes/admin.routes.js',
     './src/routes/collection.routes.js',
+    './src/routes/address.routes.js',
   ],
 };
 

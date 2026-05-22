@@ -81,6 +81,9 @@ app.use('/api/collections', require('./routes/collection.routes'));
 // Cart routes
 app.use('/api/cart', require('./routes/cart.routes'));
 
+// Address routes
+app.use('/api/addresses', require('./routes/address.routes'));
+
 // Order routes (placeholder for future)
 // app.use("/api/orders", require("./routes/order.routes"));
 
