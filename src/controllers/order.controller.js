@@ -1,6 +1,7 @@
 const {
   createOrder,
   getOrders,
+  getOrderMetrics,
   getOrderById,
   cancelOrder,
   payRemaining,
@@ -8,7 +9,7 @@ const {
   updateOrderStatusAdmin,
   confirmPayment,
 } = require('../services/order.service');
-const { getPayOS } = require('../services/payment.service');
+const { getPayOS, getPaymentLogs } = require('../services/payment.service');
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,10 +48,11 @@ const getOrdersHandler = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { cursor, limit } = req.query;
+    const { cursor, limit, status } = req.query;
     const result = await getOrders(userId, {
       cursor,
       limit: limit ? Number(limit) : 20,
+      status,
     });
 
     return res.json(result);
@@ -213,9 +215,37 @@ const syncPaymentHandler = async (req, res) => {
   }
 };
 
+const getOrderMetricsHandler = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const metrics = await getOrderMetrics(userId);
+    return res.json(metrics);
+  } catch (error) {
+    console.error('Get order metrics error:', error);
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const getPaymentLogsHandler = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const payments = await getPaymentLogs(userId);
+    return res.json({ payments });
+  } catch (error) {
+    console.error('Get payment logs error:', error);
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createOrderHandler,
   getOrdersHandler,
+  getOrderMetricsHandler,
+  getPaymentLogsHandler,
   getOrderByIdHandler,
   cancelOrderHandler,
   payRemainingHandler,

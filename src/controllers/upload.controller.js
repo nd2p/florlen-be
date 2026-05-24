@@ -115,6 +115,41 @@ const uploadImages = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /api/uploads
+ */
+const deleteUploadedImage = async (req, res) => {
+  try {
+    const { bucket, path } = req.body;
+    if (!bucket || !path) {
+      return res.status(400).json({ message: 'Missing bucket or path in request body' });
+    }
+
+    const referenceBucket = process.env.SUPABASE_REFERENCE_UPLOAD_BUCKET || 'reference-uploads';
+    const isReference = bucket === referenceBucket;
+
+    if (isReference) {
+      // Security check: User can only delete files in their own user-scoped directory
+      const prefix = `${req.user.id}/`;
+      if (!path.startsWith(prefix)) {
+        return res.status(403).json({ message: 'You are not authorized to delete this file' });
+      }
+    } else {
+      // Non-reference files require admin role
+      if (!ADMIN_ROLES.includes(req.user.role)) {
+        return res.status(403).json({ message: 'Only admins can delete non-reference assets' });
+      }
+    }
+
+    await deleteFile(bucket, path);
+    return res.status(200).json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Delete uploaded image error:', error);
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   uploadImages,
+  deleteUploadedImage,
 };

@@ -53,6 +53,7 @@ const authenticate = async (req, res, next) => {
       id: data.user.id,
       email: data.user.email,
       ...profile, // includes role, is_active, etc.
+      phone: profile.phone_number,
     };
 
     next();
@@ -109,6 +110,7 @@ const optionalAuthenticate = async (req, res, next) => {
       id: data.user.id,
       email: data.user.email,
       ...profile,
+      phone: profile.phone_number,
     };
 
     return next();

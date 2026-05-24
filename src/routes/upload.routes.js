@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { uploadImages } = require('../controllers/upload.controller');
+const { uploadImages, deleteUploadedImage } = require('../controllers/upload.controller');
 const { authenticate } = require('../middlewares/authenticate');
 
 const router = express.Router();
@@ -82,5 +82,6 @@ const upload = multer({
  *             schema: { $ref: '#/components/schemas/Error' }
  */
 router.post('/', authenticate, upload.array('images', 20), uploadImages);
+router.delete('/', authenticate, deleteUploadedImage);
 
 module.exports = router;

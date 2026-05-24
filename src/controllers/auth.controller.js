@@ -166,7 +166,11 @@ const updateProfile = async (req, res) => {
     // Only allow specific fields to be updated
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
+        if (field === 'phone') {
+          updateData['phone_number'] = req.body[field];
+        } else {
+          updateData[field] = req.body[field];
+        }
       }
     });
 
@@ -176,9 +180,14 @@ const updateProfile = async (req, res) => {
 
     const updatedProfile = await updateProfileService(req.user.id, updateData);
 
+    const userResponse = {
+      ...updatedProfile,
+      phone: updatedProfile.phone_number,
+    };
+
     res.json({
       message: 'Profile updated successfully',
-      user: updatedProfile,
+      user: userResponse,
     });
   } catch (error) {
     console.error('Update profile error:', error);

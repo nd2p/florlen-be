@@ -4,6 +4,8 @@ const { authenticate } = require('../middlewares/authenticate');
 const {
   createOrderHandler,
   getOrdersHandler,
+  getOrderMetricsHandler,
+  getPaymentLogsHandler,
   getOrderByIdHandler,
   cancelOrderHandler,
   payRemainingHandler,
@@ -120,6 +122,11 @@ router.post('/sync-payment', authenticate, syncPaymentHandler);
  *           type: integer
  *           default: 20
  *         description: Number of orders to return
+ *       - name: status
+ *         in: query
+ *         schema:
+ *           type: string
+ *         description: Filter orders by status
  *     responses:
  *       200:
  *         description: List of orders
@@ -145,6 +152,63 @@ router.post('/sync-payment', authenticate, syncPaymentHandler);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/', authenticate, getOrdersHandler);
+
+/**
+ * @swagger
+ * /api/orders/metrics:
+ *   get:
+ *     summary: Get counts of user orders by status (in production, shipping, completed)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Counts by status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 in_production: { type: integer }
+ *                 shipping: { type: integer }
+ *                 completed: { type: integer }
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/metrics', authenticate, getOrderMetricsHandler);
+
+/**
+ * @swagger
+ * /api/orders/payments/logs:
+ *   get:
+ *     summary: Retrieve transaction history (payment logs) for current user
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of payments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 payments:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/payments/logs', authenticate, getPaymentLogsHandler);
 
 /**
  * @swagger

@@ -217,15 +217,19 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note }) =
 /**
  * GET /api/orders — List orders for authenticated user.
  */
-const getOrders = async (userId, { cursor, limit = 20 } = {}) => {
+const getOrders = async (userId, { cursor, limit = 20, status } = {}) => {
   let query = supabaseAdmin
     .from('orders')
     .select(
-      'id, order_number, status, total_amount, deposit_amount, remaining_amount, payment_option, payment_stage, created_at, estimated_delivery, order_items(product_name, product_image_url, variant_label)'
+      'id, order_number, status, total_amount, deposit_amount, remaining_amount, payment_option, payment_stage, created_at, estimated_delivery, order_items(product_name, product_image_url, variant_label, unit_price, quantity, subtotal)'
     )
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(Number(limit) + 1);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
 
   if (cursor) {
     query = query.lt('created_at', cursor);
@@ -254,6 +258,40 @@ const getOrders = async (userId, { cursor, limit = 20 } = {}) => {
     hasMore,
     nextCursor: hasMore ? mappedOrders[mappedOrders.length - 1].created_at : null,
   };
+};
+
+/**
+ * GET /api/orders/metrics — Count orders in in_production, shipping, completed statuses.
+ */
+const getOrderMetrics = async (userId) => {
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select('status')
+    .eq('user_id', userId);
+
+  if (error) throw new Error(error.message);
+
+  const metrics = {
+    all: 0,
+    in_production: 0,
+    shipping: 0,
+    completed: 0,
+  };
+
+  if (data) {
+    metrics.all = data.length;
+    data.forEach((order) => {
+      if (order.status === ORDER_STATUS.IN_PRODUCTION) {
+        metrics.in_production++;
+      } else if (order.status === ORDER_STATUS.SHIPPING) {
+        metrics.shipping++;
+      } else if (order.status === ORDER_STATUS.COMPLETED) {
+        metrics.completed++;
+      }
+    });
+  }
+
+  return metrics;
 };
 
 /**
@@ -752,6 +790,7 @@ const updateOrderStatusAdmin = async (orderId, newStatus, changedBy) => {
 module.exports = {
   createOrder,
   getOrders,
+  getOrderMetrics,
   getOrderById,
   cancelOrder,
   payRemaining,

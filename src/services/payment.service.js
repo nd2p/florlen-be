@@ -173,6 +173,33 @@ const findPaymentByIntentId = async (paymentIntentId) => {
   return data;
 };
 
+const getPaymentLogs = async (userId) => {
+  const { data, error } = await supabaseAdmin
+    .from('payments')
+    .select(`
+      id,
+      payment_intent_id,
+      payment_type,
+      payment_method,
+      gateway,
+      amount,
+      currency,
+      status,
+      paid_at,
+      qr_code_url,
+      created_at,
+      order_id,
+      orders!fk_payments_order (
+        order_number
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch payment logs: ${error.message}`);
+  return data;
+};
+
 module.exports = {
   getPayOS,
   generateOrderCode,
@@ -182,4 +209,5 @@ module.exports = {
   updatePaymentStatus,
   updatePaymentQR,
   findPaymentByIntentId,
+  getPaymentLogs,
 };
