@@ -14,22 +14,60 @@ const fetchProductWithRelations = async (id) => {
   return data;
 };
 
-const listProducts = async ({ cursor, limit = 20, type, tag, collection, search }) => {
+const listProducts = async ({ cursor, offset, limit = 20, type, tag, collection, search, is_featured, sort_by, min_price, max_price }) => {
+  let productIds = null;
+  if (collection) {
+    const { data: relData, error: relError } = await supabaseAdmin
+      .from('collection_products')
+      .select('product_id')
+      .eq('collection_id', collection);
+
+    if (relError) throw new Error(relError.message);
+
+    productIds = relData.map((r) => r.product_id);
+    if (productIds.length === 0) {
+      return { products: [], hasMore: false, nextCursor: null };
+    }
+  }
+
   let query = supabaseAdmin
     .from('products')
-    .select('*, product_images(*), product_variants(*)')
-    .limit(Number(limit) + 1);
+    .select('*, product_images(*), product_variants(*)');
+
+  if (offset !== undefined && offset !== null && offset !== '') {
+    const start = Number(offset);
+    query = query.range(start, start + Number(limit));
+  } else {
+    query = query.limit(Number(limit) + 1);
+    if (cursor) query = query.gt('id', cursor);
+  }
 
   if (type) query = query.eq('product_type', type);
-  if (collection) query = query.eq('collection_id', collection);
+  if (productIds) query = query.in('id', productIds);
   if (tag) query = query.contains('tags', [tag]);
   if (search) query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
-  if (cursor) query = query.gt('id', cursor);
+  if (min_price !== undefined && min_price !== null && min_price !== '') query = query.gte('base_price', Number(min_price));
+  if (max_price !== undefined && max_price !== null && max_price !== '') query = query.lte('base_price', Number(max_price));
+
+  if (is_featured !== undefined) {
+    if (String(is_featured) === 'true') query = query.eq('is_featured', true);
+    if (String(is_featured) === 'false') query = query.eq('is_featured', false);
+  }
+
+  if (sort_by === 'price_asc') {
+    query = query.order('base_price', { ascending: true }).order('id', { ascending: true });
+  } else if (sort_by === 'price_desc') {
+    query = query.order('base_price', { ascending: false }).order('id', { ascending: true });
+  } else if (sort_by === 'updated_at') {
+    query = query.order('updated_at', { ascending: false });
+  } else {
+    query = query.order('id', { ascending: true });
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const hasMore = data.length > limit;
+  const hasMore = data.length > Number(limit);
   if (hasMore) data.pop();
   const nextCursor = hasMore ? data[data.length - 1].id : null;
 
