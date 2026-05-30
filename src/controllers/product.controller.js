@@ -13,6 +13,11 @@ const { PRODUCT_TYPE } = require('../config/constants');
 const getProducts = async (req, res) => {
   try {
     const { cursor, offset, limit, type, tag, collection, q, is_featured, sort_by, min_price, max_price } = req.query;
+    
+    // Non-admins (guests & regular users) cannot list 'ai_base' products
+    const isAdmin = req.user && ['admin', 'super_admin'].includes(req.user.role);
+    const excludeAiBase = !isAdmin;
+
     const result = await listProducts({
       cursor,
       offset,
@@ -25,6 +30,7 @@ const getProducts = async (req, res) => {
       sort_by,
       min_price,
       max_price,
+      excludeAiBase,
     });
     res.json(result);
   } catch (error) {
@@ -41,6 +47,15 @@ const getProduct = async (req, res) => {
     const { id } = req.params;
     const product = await getProductById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
+    
+    // Non-admins cannot fetch single 'ai_base' products (hide their existence)
+    if (product.product_type === 'ai_base') {
+      const isAdmin = req.user && ['admin', 'super_admin'].includes(req.user.role);
+      if (!isAdmin) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+    }
+
     res.json({ product });
   } catch (error) {
     console.error('Get product error:', error);

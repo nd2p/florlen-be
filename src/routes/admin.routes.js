@@ -6,6 +6,10 @@ const {
   getAllOrdersAdminHandler,
   updateOrderStatusAdminHandler,
 } = require('../controllers/order.controller');
+const {
+  getAdminAIConfig,
+  updateAdminAIConfig,
+} = require('../controllers/admin.controller');
 
 // Apply auth middlewares to all admin routes
 router.use(authenticate);
@@ -172,5 +176,9 @@ router.get('/orders', getAllOrdersAdminHandler);
  *               $ref: '#/components/schemas/Error'
  */
 router.patch('/orders/:id/status', updateOrderStatusAdminHandler);
+
+// AI Configuration routes
+router.get('/ai/config', getAdminAIConfig);
+router.put('/ai/config', updateAdminAIConfig);
 
 module.exports = router;

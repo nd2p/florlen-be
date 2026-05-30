@@ -14,7 +14,7 @@ const fetchProductWithRelations = async (id) => {
   return data;
 };
 
-const listProducts = async ({ cursor, offset, limit = 20, type, tag, collection, search, is_featured, sort_by, min_price, max_price }) => {
+const listProducts = async ({ cursor, offset, limit = 20, type, tag, collection, search, is_featured, sort_by, min_price, max_price, excludeAiBase }) => {
   let productIds = null;
   if (collection) {
     const { data: relData, error: relError } = await supabaseAdmin
@@ -33,6 +33,13 @@ const listProducts = async ({ cursor, offset, limit = 20, type, tag, collection,
   let query = supabaseAdmin
     .from('products')
     .select('*, product_images(*), product_variants(*)');
+
+  if (excludeAiBase) {
+    if (type === 'ai_base') {
+      return { products: [], hasMore: false, nextCursor: null };
+    }
+    query = query.neq('product_type', 'ai_base');
+  }
 
   if (offset !== undefined && offset !== null && offset !== '') {
     const start = Number(offset);

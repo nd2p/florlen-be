@@ -90,11 +90,14 @@ app.use('/api/orders', require('./routes/order.routes'));
 // Webhook routes (PayOS payment callbacks — no auth)
 app.use('/api/webhooks', require('./routes/webhook.routes'));
 
-// Design routes (placeholder for future)
-// app.use("/api/designs", require("./routes/design.routes"));
+// Design routes
+app.use('/api/designs', require('./routes/design.routes'));
 
 // Admin routes
 app.use('/api/admin', require('./routes/admin.routes'));
+
+// Discount routes
+app.use('/api/discounts', require('./routes/discount.routes'));
 
 /**
  * ============================================

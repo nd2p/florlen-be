@@ -6,7 +6,7 @@ const {
   update,
   remove,
 } = require('../controllers/product.controller');
-const { authenticate } = require('../middlewares/authenticate');
+const { authenticate, optionalAuthenticate } = require('../middlewares/authenticate');
 const { authorizeAdmin } = require('../middlewares/authorize');
 
 const router = express.Router();
@@ -52,7 +52,7 @@ const router = express.Router();
  *                 hasMore: { type: boolean }
  *                 nextCursor: { type: string, format: uuid, nullable: true }
  */
-router.get('/', getProducts);
+router.get('/', optionalAuthenticate, getProducts);
 
 /**
  * @swagger
@@ -81,7 +81,7 @@ router.get('/', getProducts);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/Error' }
  */
-router.get('/:id', getProduct);
+router.get('/:id', optionalAuthenticate, getProduct);
 
 /**
  * @swagger

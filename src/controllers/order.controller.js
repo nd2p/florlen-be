@@ -20,7 +20,7 @@ const createOrderHandler = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { cartId, paymentOption, addressId, note } = req.body;
+    const { cartId, paymentOption, addressId, note, voucherCode } = req.body;
 
     if (!cartId) return res.status(400).json({ message: 'cartId is required' });
     if (!paymentOption || !['full', 'deposit'].includes(paymentOption)) {
@@ -28,7 +28,7 @@ const createOrderHandler = async (req, res) => {
     }
     if (!addressId) return res.status(400).json({ message: 'addressId is required' });
 
-    const result = await createOrder({ userId, cartId, paymentOption, addressId, note });
+    const result = await createOrder({ userId, cartId, paymentOption, addressId, note, voucherCode });
 
     return res.status(201).json({
       message: 'Order created successfully',

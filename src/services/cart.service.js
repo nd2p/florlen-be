@@ -101,50 +101,91 @@ const addItem = async ({ userId, sessionId }, itemData) => {
 
   const cart = await getOrCreateCart({ userId, sessionId });
 
-  // ── Fetch product & variant to snapshot prices ──
-  const { data: product, error: productError } = await supabaseAdmin
-    .from('products')
-    .select('*, product_images(url, is_primary, sort_order)')
-    .eq('id', product_id)
-    .eq('is_active', true)
-    .is('deleted_at', null)
-    .single();
-
-  if (productError || !product) throw new Error('Product not found or inactive');
-
+  let product = null;
   let variant = null;
-  if (variant_id) {
-    const { data: v, error: vError } = await supabaseAdmin
-      .from('product_variants')
-      .select('*')
-      .eq('id', variant_id)
-      .eq('product_id', product_id)
-      .eq('is_active', true)
-      .single();
+  let design = null;
 
-    if (vError || !v) throw new Error('Variant not found or inactive');
-    variant = v;
-  }
-
-  // ── Validate design for AI items ──
+  // ── Validate design for AI items first ──
   if (item_type === 'ai_personalization') {
     if (!design_id) throw new Error('design_id is required for ai_personalization items');
-    const { data: design, error: designError } = await supabaseAdmin
+    const { data: d, error: designError } = await supabaseAdmin
       .from('designs')
-      .select('id, status, mockup_image_url')
+      .select('id, status, mockup_image_url, customization_fee, prompt_text, selected_colors')
       .eq('id', design_id)
       .single();
 
-    if (designError || !design) throw new Error('Design not found');
-    if (design.status !== 'ready' && design.status !== 'finalized') {
+    if (designError || !d) throw new Error('Design not found');
+    if (d.status !== 'ready' && d.status !== 'finalized') {
       throw new Error('Design must be in "ready" or "finalized" status to add to cart');
+    }
+    design = d;
+  }
+
+  // ── Fetch product & variant to snapshot prices ──
+  if (!product_id && item_type === 'ai_personalization') {
+    // Construct a virtual product representation dynamically when decoupled (base product not in DB)
+    const hasAccessories = design.selected_colors && Object.keys(design.selected_colors).some(k => ['pants', 'shirt', 'hat', 'hair', 'bag', 'scarf', 'handAccessory'].includes(k));
+    const isTui = design.selected_colors && ('illustration' in design.selected_colors || 'color' in design.selected_colors) && !hasAccessories;
+    
+    let basePrice = 120000; // hat base
+    let name = 'Mũ len AI Custom';
+    let sku = 'AI-HAT-CUSTOM';
+    let slug = 'ai-hat-custom';
+
+    if (hasAccessories) {
+      basePrice = 250000;
+      name = 'Móc khóa AI Custom';
+      sku = 'AI-KEYCHAIN-CUSTOM';
+      slug = 'ai-keychain-custom';
+    } else if (isTui) {
+      basePrice = 150000;
+      name = 'Túi len AI Custom';
+      sku = 'AI-BAG-CUSTOM';
+      slug = 'ai-bag-custom';
+    }
+
+    product = {
+      sku,
+      name,
+      slug,
+      product_type: 'ai_base',
+      base_price: basePrice,
+      customization_fee: design.customization_fee,
+      production_days_min: 5,
+      production_days_max: 10,
+      product_images: [{ url: design.mockup_image_url, is_primary: true }]
+    };
+  } else {
+    // Normal pre-seeded product query
+    const { data: p, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('*, product_images(url, is_primary, sort_order)')
+      .eq('id', product_id)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .single();
+
+    if (productError || !p) throw new Error('Product not found or inactive');
+    product = p;
+
+    if (variant_id) {
+      const { data: v, error: vError } = await supabaseAdmin
+        .from('product_variants')
+        .select('*')
+        .eq('id', variant_id)
+        .eq('product_id', product_id)
+        .eq('is_active', true)
+        .single();
+
+      if (vError || !v) throw new Error('Variant not found or inactive');
+      variant = v;
     }
   }
 
   // ── Compute pricing ──
   const unit_price = Number(product.base_price) + Number(variant?.additional_price ?? 0);
   const customization_fee =
-    item_type === 'ai_personalization' ? Number(product.customization_fee ?? 0) : 0;
+    item_type === 'ai_personalization' ? Number(design?.customization_fee ?? 0) : 0;
   const line_total = (unit_price + customization_fee) * quantity;
 
   const snapshot = buildProductSnapshot(product, variant);

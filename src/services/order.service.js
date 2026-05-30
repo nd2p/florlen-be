@@ -69,7 +69,7 @@ const generateOrderNumber = async () => {
  *
  * Cart is NOT cleared here — cleared only after webhook confirms payment.
  */
-const createOrder = async ({ userId, cartId, paymentOption, addressId, note }) => {
+const createOrder = async ({ userId, cartId, paymentOption, addressId, note, voucherCode }) => {
   // 1. Fetch and validate cart
   const { data: cart, error: cartError } = await supabaseAdmin
     .from('carts')
@@ -107,7 +107,26 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note }) =
 
   // 3. Calculate pricing
   const subtotal = activeItems.reduce((sum, item) => sum + Number(item.line_total), 0);
-  const totalAmount = subtotal; // Shipping/handmade fees can be added here if needed
+
+  // Validate applied voucher on backend
+  let discountAmount = 0;
+  let appliedVoucher = null;
+
+  if (voucherCode) {
+    const { validateVoucherCode } = require('./discount.service');
+    const validation = await validateVoucherCode(voucherCode, subtotal, userId);
+    discountAmount = validation.discountAmount;
+    
+    const { data: v } = await supabaseAdmin
+      .from('vouchers')
+      .select('id, code')
+      .eq('code', validation.code)
+      .is('deleted_at', null)
+      .single();
+    appliedVoucher = v;
+  }
+
+  const totalAmount = Math.max(0, subtotal - discountAmount);
 
   const depositRate = paymentOption === 'full' ? 1.0 : 0.3;
   const depositAmount = Math.ceil(totalAmount * depositRate);
@@ -134,6 +153,8 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note }) =
     order_number: orderNumber,
     user_id: userId,
     subtotal,
+    discount_amount: discountAmount,
+    applied_voucher_id: appliedVoucher?.id || null,
     total_amount: totalAmount,
     currency: 'VND',
     payment_option: paymentOption,
@@ -480,6 +501,7 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
         deposit_payment_id: payment.id,
         status: ORDER_STATUS.CONFIRMED, // paid and confirmed
         subtotal: draftOrder.subtotal,
+        discount_amount: draftOrder.discount_amount || 0,
         total_amount: draftOrder.total_amount,
         currency: draftOrder.currency,
         payment_option: draftOrder.payment_option,
@@ -535,6 +557,34 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
     // Insert order status logs
     await pushStatusLog(orderId, null, ORDER_STATUS.PENDING_PAYMENT, 'system');
     await pushStatusLog(orderId, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.CONFIRMED, 'webhook');
+
+    // Handle voucher usage logging and count increment
+    if (draftOrder.applied_voucher_id) {
+      try {
+        const { data: v } = await supabaseAdmin
+          .from('vouchers')
+          .select('used_count')
+          .eq('id', draftOrder.applied_voucher_id)
+          .single();
+        if (v) {
+          await supabaseAdmin
+            .from('vouchers')
+            .update({ used_count: (v.used_count || 0) + 1 })
+            .eq('id', draftOrder.applied_voucher_id);
+        }
+
+        // Track usage for this account
+        await supabaseAdmin
+          .from('user_voucher_usages')
+          .insert({
+            user_id: draftOrder.user_id,
+            voucher_id: draftOrder.applied_voucher_id,
+            order_id: orderId
+          });
+      } catch (vErr) {
+        console.error('Failed to register voucher usage details:', vErr.message || vErr);
+      }
+    }
 
     // Update the payment record with the new orderId and merge/save webhook response
     const mergedGatewayResponse = {

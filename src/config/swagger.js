@@ -230,6 +230,35 @@ const options = {
             created_at: { type: 'string', format: 'date-time' },
           },
         },
+        Design: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            user_id: { type: 'string', format: 'uuid', nullable: true },
+            product_id: { type: 'string', format: 'uuid' },
+            prompt_text: { type: 'string', nullable: true, maxLength: 500 },
+            selected_colors: { type: 'object', nullable: true, description: 'Selected options snapshot' },
+            complexity_score: { type: 'integer', nullable: true },
+            mockup_image_url: { type: 'string', nullable: true },
+            mockup_storage_path: { type: 'string', nullable: true },
+            ai_prompt_used: { type: 'string', nullable: true },
+            color_palette: { type: 'array', items: { type: 'string' }, nullable: true },
+            material_suggestions: { type: 'array', items: { type: 'string' }, nullable: true },
+            customization_fee: { type: 'number', format: 'double' },
+            status: {
+              type: 'string',
+              enum: ['draft', 'generating', 'failed', 'ready', 'finalized'],
+            },
+            generation_attempts: { type: 'integer' },
+            variant_suggestions: {
+              type: 'array',
+              items: { type: 'object' },
+              description: 'History of previous attempts in the session'
+            },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
@@ -239,6 +268,22 @@ const options = {
             status: {
               type: 'integer',
             },
+          },
+        },
+        Voucher: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            code: { type: 'string', example: 'FLORLEN50' },
+            discount_type: { type: 'string', enum: ['percentage', 'fixed_amount', 'free_shipping'] },
+            discount_value: { type: 'number', example: 50000 },
+            start_date: { type: 'string', format: 'date-time' },
+            end_date: { type: 'string', format: 'date-time', nullable: true },
+            usage_limit: { type: 'integer', nullable: true },
+            used_count: { type: 'integer' },
+            is_active: { type: 'boolean' },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
           },
         },
       },
@@ -255,6 +300,7 @@ const options = {
     './src/routes/admin.routes.js',
     './src/routes/collection.routes.js',
     './src/routes/address.routes.js',
+    './src/routes/discount.routes.js',
   ],
 };
 
