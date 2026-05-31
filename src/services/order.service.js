@@ -79,7 +79,7 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note, vou
         products(id, name, slug, sku, base_price, customization_fee, product_type, is_active, deleted_at,
           production_days_min, production_days_max,
           product_images(url, is_primary, sort_order)),
-        product_variants(id, sku_suffix, size, color_name, color_hex, additional_price, image_url)
+        product_variants(id, sku_suffix, size, color_name, color_hex, additional_price, image_url, is_active)
       )`
     )
     .eq('id', cartId)
@@ -90,10 +90,30 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note, vou
   if (!cart.cart_items || cart.cart_items.length === 0) throw new Error('Cart is empty');
 
   // Filter active items only
-  const activeItems = cart.cart_items.filter(
-    (item) => item.products?.is_active !== false && !item.products?.deleted_at
+  const rawActiveItems = cart.cart_items.filter(
+    (item) =>
+      item.products?.is_active !== false &&
+      !item.products?.deleted_at &&
+      (!item.variant_id || !item.product_variants || item.product_variants.is_active !== false)
   );
-  if (activeItems.length === 0) throw new Error('No active items in cart');
+  if (rawActiveItems.length === 0) throw new Error('No active items in cart');
+
+  // Recalculate pricing dynamically to ensure live pricing
+  const activeItems = rawActiveItems.map((item) => {
+    if (item.products) {
+      const live_unit_price =
+        Number(item.products.base_price) +
+        Number(item.product_variants?.additional_price ?? 0);
+      const live_line_total =
+        (live_unit_price + Number(item.customization_fee)) * item.quantity;
+      return {
+        ...item,
+        unit_price: live_unit_price,
+        line_total: live_line_total,
+      };
+    }
+    return item;
+  });
 
   // 2. Fetch and validate address
   const { data: address, error: addrError } = await supabaseAdmin

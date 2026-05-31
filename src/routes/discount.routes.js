@@ -8,6 +8,7 @@ const {
   updateVoucherHandler,
   deleteVoucherHandler,
   validateVoucherHandler,
+  getAvailableVouchersHandler,
 } = require('../controllers/discount.controller');
 
 /**
@@ -61,6 +62,9 @@ const {
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/validate', optionalAuthenticate, validateVoucherHandler);
+
+// Authenticated user: get available vouchers for checkout
+router.get('/available', authenticate, getAvailableVouchersHandler);
 
 // Admin-protected operations
 router.use(authenticate);

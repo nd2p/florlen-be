@@ -302,44 +302,73 @@ const syncProductVariants = async (productId, variants, productIsActive = true) 
 
   if (existingVariantsError) throw new Error(existingVariantsError.message);
 
+  const existingVariantMap = new Map(existingVariants.map((v) => [v.sku_suffix, v]));
+  const incomingSkuSuffixes = new Set(variants.map((v) => v.sku_suffix));
+
   const normalizedVariants = variants.map((variant) =>
     normalizeVariantInput(variant, productId, productIsActive)
   );
-  const insertedVariantIds = [];
+
+  const variantsToUpsert = normalizedVariants.map((incoming) => {
+    const existing = existingVariantMap.get(incoming.sku_suffix);
+    if (existing) {
+      return {
+        id: existing.id,
+        ...incoming,
+      };
+    }
+    return incoming;
+  });
+
+  const idsToDelete = existingVariants
+    .filter((v) => v.is_active !== false && !incomingSkuSuffixes.has(v.sku_suffix))
+    .map((v) => v.id);
 
   const rollback = async () => {
-    if (insertedVariantIds.length) {
-      await supabaseAdmin.from('product_variants').delete().in('id', insertedVariantIds);
+    // Delete any variants that were created brand new (not present in existing variant map)
+    const { data: currentVariants } = await supabaseAdmin
+      .from('product_variants')
+      .select('id, sku_suffix')
+      .eq('product_id', productId);
+
+    if (currentVariants) {
+      const newIds = currentVariants
+        .filter((v) => !existingVariantMap.has(v.sku_suffix))
+        .map((v) => v.id);
+      if (newIds.length) {
+        await supabaseAdmin.from('product_variants').delete().in('id', newIds);
+      }
     }
 
+    // Restore original existing variants (reverses deletes and updates)
     if (existingVariants.length) {
-      await supabaseAdmin.from('product_variants').upsert(existingVariants, { onConflict: 'id' });
+      await supabaseAdmin.from('product_variants').upsert(existingVariants);
     }
   };
 
   try {
-    if (existingVariants.length) {
+    let syncedVariants = [];
+
+    if (variantsToUpsert.length) {
+      const { data: upsertedVariants, error: upsertError } = await supabaseAdmin
+        .from('product_variants')
+        .upsert(variantsToUpsert)
+        .select();
+
+      if (upsertError) throw new Error(upsertError.message);
+      syncedVariants = upsertedVariants || [];
+    }
+
+    if (idsToDelete.length) {
       const { error: deleteError } = await supabaseAdmin
         .from('product_variants')
-        .delete()
-        .eq('product_id', productId);
+        .update({ is_active: false })
+        .in('id', idsToDelete);
 
       if (deleteError) throw new Error(deleteError.message);
     }
 
-    if (!normalizedVariants.length) {
-      return { variants: [], rollback };
-    }
-
-    const { data: createdVariants, error: insertError } = await supabaseAdmin
-      .from('product_variants')
-      .insert(normalizedVariants)
-      .select();
-
-    if (insertError) throw new Error(insertError.message);
-
-    insertedVariantIds.push(...createdVariants.map((variant) => variant.id));
-    return { variants: createdVariants, rollback };
+    return { variants: syncedVariants, rollback };
   } catch (error) {
     await rollback();
     throw error;
@@ -437,6 +466,9 @@ const updateProduct = async (id, updateData = {}) => {
   }
 
   const existingProduct = await fetchProductWithRelations(id);
+  if (existingProduct.product_type === 'ai_base') {
+    throw new Error('AI Base products cannot be modified');
+  }
   const targetProductIsActive = productUpdates.is_active ?? existingProduct.is_active ?? true;
 
   // If reactivating a soft-deleted product, reset deleted_at
@@ -498,6 +530,9 @@ const updateProduct = async (id, updateData = {}) => {
 
 const deleteProduct = async (id) => {
   const existingProduct = await fetchProductWithRelations(id);
+  if (existingProduct.product_type === 'ai_base') {
+    throw new Error('AI Base products cannot be deleted');
+  }
   const productImages = existingProduct.product_images || [];
   const productVariants = existingProduct.product_variants || [];
 

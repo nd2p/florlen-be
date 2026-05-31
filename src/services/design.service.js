@@ -30,24 +30,6 @@ const checkDailyLimit = async (userId) => {
 
 const settingsService = require('./settings.service');
 
-// Static Pricing Configuration (VND)
-const PRODUCT_BASE_PRICES = {
-  mini_figure: 250000,
-  bag: 150000,
-  hat: 120000,
-};
-
-const ACCESSORY_PRICES = {
-  pants: { label: 'Quần', price: 15000 },
-  shirt: { label: 'Áo', price: 20000 },
-  hat: { label: 'Mũ phụ kiện', price: 25000 },
-  hair: { label: 'Tóc', price: 20000 },
-  bag: { label: 'Túi phụ kiện', price: 15000 },
-  scarf: { label: 'Khăn', price: 10000 },
-  handAccessory: { label: 'Phụ kiện cầm tay', price: 30000 },
-};
-
-const ILLUSTRATION_PRICE = 40000;
 
 /**
  * Calculates customization fee and sums up selected options dynamically.
@@ -109,17 +91,13 @@ const calculatePricing = async (productType, options = {}) => {
  * Queries the database for a pre-seeded active product of type 'ai_base' matching the category slug
  */
 const getBaseProduct = async (productType) => {
-  let slug = 'keychain-crochet'; // Default fallback matching database seed
-  if (productType === 'bag') slug = 'mini-plush';
-  else if (productType === 'hat') slug = 'mini-sweater';
-
   // 1. Try to find the exact pre-seeded base product
   let searchSlug = productType;
   if (productType === 'bag') searchSlug = 'plush';
   else if (productType === 'hat') searchSlug = 'sweater';
   else if (productType === 'mini_figure') searchSlug = 'keychain';
 
-  const { data: matched, error: matchedErr } = await supabaseAdmin
+  const { data: matched } = await supabaseAdmin
     .from('products')
     .select('id')
     .eq('product_type', 'ai_base')
@@ -131,7 +109,7 @@ const getBaseProduct = async (productType) => {
   if (matched) return matched;
 
   // 2. Try the general seed slugs
-  const { data: seeded, error: seededErr } = await supabaseAdmin
+  const { data: seeded } = await supabaseAdmin
     .from('products')
     .select('id')
     .eq('product_type', 'ai_base')
@@ -143,7 +121,7 @@ const getBaseProduct = async (productType) => {
   if (seeded) return seeded;
 
   // 3. Last fallback to ANY product of type 'ai_base'
-  const { data: fallback, error: fallbackErr } = await supabaseAdmin
+  const { data: fallback } = await supabaseAdmin
     .from('products')
     .select('id')
     .eq('product_type', 'ai_base')
@@ -545,6 +523,10 @@ const deleteDesign = async (designId, userId) => {
     .from('design_reference_images')
     .select('storage_path')
     .eq('design_id', designId);
+
+  if (refError) {
+    console.error('Lỗi khi lấy ảnh liên kết thiết kế:', refError.message);
+  }
 
   // 3. Compile file paths to remove from the Storage bucket
   const filesToDelete = [];

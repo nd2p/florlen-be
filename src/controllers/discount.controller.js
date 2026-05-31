@@ -4,6 +4,7 @@ const {
   updateVoucher,
   deleteVoucher,
   validateVoucherCode,
+  getAvailableVouchers,
 } = require('../services/discount.service');
 
 const getVouchersHandler = async (req, res) => {
@@ -28,6 +29,7 @@ const createVoucherHandler = async (req, res) => {
       usage_limit,
       limit_per_user,
       is_active,
+      user_ids,
     } = req.body;
 
     if (!code) return res.status(400).json({ message: 'Voucher code is required' });
@@ -42,6 +44,7 @@ const createVoucherHandler = async (req, res) => {
       usage_limit,
       limit_per_user,
       is_active,
+      user_ids,
     });
 
     return res.status(201).json({
@@ -65,6 +68,7 @@ const updateVoucherHandler = async (req, res) => {
       usage_limit,
       limit_per_user,
       is_active,
+      user_ids,
     } = req.body;
 
     const voucher = await updateVoucher(id, {
@@ -75,6 +79,7 @@ const updateVoucherHandler = async (req, res) => {
       usage_limit,
       limit_per_user,
       is_active,
+      user_ids,
     });
 
     return res.json({
@@ -115,10 +120,23 @@ const validateVoucherHandler = async (req, res) => {
   }
 };
 
+const getAvailableVouchersHandler = async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const subtotal = Number(req.query.subtotal || 0);
+    const vouchers = await getAvailableVouchers(userId, subtotal);
+    return res.json({ vouchers });
+  } catch (error) {
+    console.error('Get available vouchers error:', error);
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getVouchersHandler,
   createVoucherHandler,
   updateVoucherHandler,
   deleteVoucherHandler,
   validateVoucherHandler,
+  getAvailableVouchersHandler,
 };

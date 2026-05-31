@@ -12,7 +12,7 @@ const findCart = async ({ userId, sessionId }) => {
         *,
         products(id, name, slug, base_price, customization_fee, product_type, is_active, deleted_at,
           product_images(url, is_primary, sort_order)),
-        product_variants(id, sku_suffix, size, color_name, color_hex, additional_price, image_url)
+        product_variants(id, sku_suffix, size, color_name, color_hex, additional_price, image_url, is_active)
       )`
   );
 
@@ -26,6 +26,25 @@ const findCart = async ({ userId, sessionId }) => {
 
   const { data, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
+
+  if (data && data.cart_items) {
+    data.cart_items = data.cart_items.map((item) => {
+      if (item.products) {
+        const live_unit_price =
+          Number(item.products.base_price) +
+          Number(item.product_variants?.additional_price ?? 0);
+        const live_line_total =
+          (live_unit_price + Number(item.customization_fee)) * item.quantity;
+        return {
+          ...item,
+          unit_price: live_unit_price,
+          line_total: live_line_total,
+        };
+      }
+      return item;
+    });
+  }
+
   return data;
 };
 
@@ -234,7 +253,7 @@ const updateItemQuantity = async ({ userId, sessionId }, itemId, quantity) => {
   // Verify item belongs to this cart
   const { data: item, error: fetchError } = await supabaseAdmin
     .from('cart_items')
-    .select('*, products(is_active, deleted_at)')
+    .select('*, products(is_active, deleted_at), product_variants(is_active)')
     .eq('id', itemId)
     .eq('cart_id', cart.id)
     .single();
@@ -243,6 +262,10 @@ const updateItemQuantity = async ({ userId, sessionId }, itemId, quantity) => {
 
   if (!item.products?.is_active || item.products?.deleted_at) {
     throw new Error('Product is no longer available or inactive');
+  }
+
+  if (item.variant_id && item.product_variants && item.product_variants.is_active === false) {
+    throw new Error('Variant is no longer available or inactive');
   }
 
   const line_total = (Number(item.unit_price) + Number(item.customization_fee)) * quantity;
