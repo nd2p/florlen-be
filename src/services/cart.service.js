@@ -146,18 +146,15 @@ const addItem = async ({ userId, sessionId }, itemData) => {
     const hasAccessories = design.selected_colors && Object.keys(design.selected_colors).some(k => ['pants', 'shirt', 'hat', 'hair', 'bag', 'scarf', 'handAccessory'].includes(k));
     const isTui = design.selected_colors && ('illustration' in design.selected_colors || 'color' in design.selected_colors) && !hasAccessories;
     
-    let basePrice = 120000; // hat base
     let name = 'Mũ len AI Custom';
     let sku = 'AI-HAT-CUSTOM';
     let slug = 'ai-hat-custom';
 
     if (hasAccessories) {
-      basePrice = 250000;
       name = 'Móc khóa AI Custom';
       sku = 'AI-KEYCHAIN-CUSTOM';
       slug = 'ai-keychain-custom';
     } else if (isTui) {
-      basePrice = 150000;
       name = 'Túi len AI Custom';
       sku = 'AI-BAG-CUSTOM';
       slug = 'ai-bag-custom';
@@ -168,7 +165,7 @@ const addItem = async ({ userId, sessionId }, itemData) => {
       name,
       slug,
       product_type: 'ai_base',
-      base_price: basePrice,
+      base_price: 0,
       customization_fee: design.customization_fee,
       production_days_min: 5,
       production_days_max: 10,

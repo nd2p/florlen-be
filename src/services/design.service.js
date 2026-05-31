@@ -183,7 +183,7 @@ const generateMockupOnly = async (userId, { productType, options = {}, customPro
   if (userId) {
     await checkDailyLimit(userId);
   }
-  const pricing = calculatePricing(productType, options);
+  const pricing = await calculatePricing(productType, options);
 
   // Create a unique temporary timestamp for file key
   const tempId = `temp_${Date.now()}`;
@@ -197,7 +197,7 @@ const generateMockupOnly = async (userId, { productType, options = {}, customPro
     ai_prompt_used: parsed.optimizedPrompt,
     color_palette: parsed.colorReferences,
     material_suggestions: parsed.styleKeywords,
-    customization_fee: pricing.customizationFee,
+    customization_fee: pricing.totalPrice,
     prompt_text: customPrompt,
   };
 };
@@ -231,6 +231,7 @@ const saveDesignDraft = async (userId, designData) => {
     .insert({
       user_id: userId,
       product_id: productId,
+      base: productType,
       prompt_text: customPrompt.substring(0, 500),
       selected_colors: options,
       complexity_score: Object.values(options).filter(Boolean).length,
@@ -276,13 +277,6 @@ const createCustomizedProduct = async (
   userId,
   { productType, customizationFee, mockupImageUrl, customPrompt, designId, options }
 ) => {
-  const productBasePrices = await settingsService.getSetting('base_product_prices', {
-    mini_figure: 250000,
-    bag: 150000,
-    hat: 120000,
-  });
-  const basePrice = productBasePrices[productType] || 120000;
-
   // Robust check to identify category
   const hasAccessories =
     options &&
@@ -316,7 +310,7 @@ const createCustomizedProduct = async (
       description: customPrompt || 'Thiết kế AI độc bản từ khách hàng Florlen',
       short_description: 'Thiết kế custom bằng công nghệ AI',
       product_type: 'ai_base',
-      base_price: basePrice,
+      base_price: 0,
       customization_fee: customizationFee || 0,
       production_days_min: 5,
       production_days_max: 10,
@@ -369,6 +363,7 @@ const finalizeDesign = async (userId, designData) => {
     .insert({
       user_id: userId,
       product_id: null,
+      base: productType,
       prompt_text: customPrompt.substring(0, 500),
       selected_colors: options,
       complexity_score: Object.values(options).filter(Boolean).length,
@@ -457,7 +452,7 @@ const finalizeExistingDesign = async (designId, userId) => {
       ('illustration' in currentDesign.selected_colors ||
         'color' in currentDesign.selected_colors) &&
       !hasAccessories;
-    const productType = hasAccessories ? 'mini_figure' : isTui ? 'bag' : 'hat';
+    const productType = currentDesign.base || (hasAccessories ? 'mini_figure' : isTui ? 'bag' : 'hat');
 
     const newProduct = await createCustomizedProduct(userId, {
       productType,

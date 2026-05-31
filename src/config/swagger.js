@@ -250,11 +250,6 @@ const options = {
               enum: ['draft', 'generating', 'failed', 'ready', 'finalized'],
             },
             generation_attempts: { type: 'integer' },
-            variant_suggestions: {
-              type: 'array',
-              items: { type: 'object' },
-              description: 'History of previous attempts in the session'
-            },
             created_at: { type: 'string', format: 'date-time' },
             updated_at: { type: 'string', format: 'date-time' },
           },
