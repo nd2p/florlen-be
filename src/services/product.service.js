@@ -309,15 +309,20 @@ const syncProductVariants = async (productId, variants, productIsActive = true) 
     normalizeVariantInput(variant, productId, productIsActive)
   );
 
-  const variantsToUpsert = normalizedVariants.map((incoming) => {
+  const variantsToUpdate = [];
+  const variantsToInsert = [];
+
+  normalizedVariants.forEach((incoming) => {
     const existing = existingVariantMap.get(incoming.sku_suffix);
     if (existing) {
-      return {
+      variantsToUpdate.push({
         id: existing.id,
         ...incoming,
-      };
+      });
+      return;
     }
-    return incoming;
+
+    variantsToInsert.push(incoming);
   });
 
   const idsToDelete = existingVariants
@@ -342,21 +347,25 @@ const syncProductVariants = async (productId, variants, productIsActive = true) 
 
     // Restore original existing variants (reverses deletes and updates)
     if (existingVariants.length) {
-      await supabaseAdmin.from('product_variants').upsert(existingVariants);
+      await supabaseAdmin.from('product_variants').upsert(existingVariants, { onConflict: 'id' });
     }
   };
 
   try {
-    let syncedVariants = [];
-
-    if (variantsToUpsert.length) {
-      const { data: upsertedVariants, error: upsertError } = await supabaseAdmin
+    if (variantsToUpdate.length) {
+      const { error: updateError } = await supabaseAdmin
         .from('product_variants')
-        .upsert(variantsToUpsert)
-        .select();
+        .upsert(variantsToUpdate, { onConflict: 'id' });
 
-      if (upsertError) throw new Error(upsertError.message);
-      syncedVariants = upsertedVariants || [];
+      if (updateError) throw new Error(updateError.message);
+    }
+
+    if (variantsToInsert.length) {
+      const { error: insertError } = await supabaseAdmin
+        .from('product_variants')
+        .insert(variantsToInsert);
+
+      if (insertError) throw new Error(insertError.message);
     }
 
     if (idsToDelete.length) {
@@ -368,7 +377,15 @@ const syncProductVariants = async (productId, variants, productIsActive = true) 
       if (deleteError) throw new Error(deleteError.message);
     }
 
-    return { variants: syncedVariants, rollback };
+    const { data: syncedVariants, error: syncedVariantsError } = await supabaseAdmin
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', productId)
+      .order('sku_suffix', { ascending: true });
+
+    if (syncedVariantsError) throw new Error(syncedVariantsError.message);
+
+    return { variants: syncedVariants || [], rollback };
   } catch (error) {
     await rollback();
     throw error;
