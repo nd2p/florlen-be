@@ -9,6 +9,7 @@ const {
   changePassword,
   forgotPassword,
   resetPassword,
+  getGoogleOAuthUrl,
   googleOAuthCallback,
 } = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/authenticate');
@@ -202,13 +203,67 @@ router.post('/reset-password', resetPassword);
 
 /**
  * @swagger
- * /api/auth/oauth/google/callback:
- *   post:
- *     summary: (Optional) Google OAuth callback handler
+ * /api/auth/oauth/google:
+ *   get:
+ *     summary: Get Google OAuth authorization URL
+ *     description: Returns the URL to redirect the user to for Google OAuth sign-in.
  *     tags: [Auth]
  *     responses:
  *       200:
- *         description: OAuth handled
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                   format: uri
+ *                   description: Google OAuth authorization URL
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
+router.get('/oauth/google', getGoogleOAuthUrl);
+
+/**
+ * @swagger
+ * /api/auth/oauth/google/callback:
+ *   post:
+ *     summary: Exchange Google authorization code for session
+ *     description: Receives the PKCE authorization code from Google redirect, exchanges it for a Supabase session, registers/syncs the user profile, and returns the tokens and user data.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: PKCE authorization code
+ *             required: [code]
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 accessToken: { type: string }
+ *                 refreshToken: { type: string }
+ *                 expiresIn: { type: integer }
+ *                 user: { $ref: '#/components/schemas/User' }
+ *       400:
+ *         description: Invalid or expired authorization code
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
  */
 router.post('/oauth/google/callback', googleOAuthCallback);
 

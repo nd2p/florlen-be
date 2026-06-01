@@ -6,12 +6,12 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 const { supabaseAdmin } = require('../src/config/supabase');
 
 async function createSuperAdmin() {
-  const email = 'admin@florlen.com';
-  const password = 'FlorlenAdmin2026!';
+  const email = 'dev.florlen@gmail.com';
+  const password = 'Florlen@2026';
   const fullName = 'Florlen Admin';
 
   console.log(`Checking if user ${email} already exists...`);
-  
+
   // Fetch users list to see if they already exist
   const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
   if (listError) {
@@ -20,7 +20,7 @@ async function createSuperAdmin() {
   }
 
   const users = listData?.users || [];
-  let user = users.find(u => u.email === email);
+  let user = users.find((u) => u.email === email);
 
   if (!user) {
     console.log(`Creating user ${email}...`);
@@ -28,7 +28,7 @@ async function createSuperAdmin() {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: fullName }
+      user_metadata: { full_name: fullName },
     });
 
     if (createError) {
@@ -42,18 +42,18 @@ async function createSuperAdmin() {
   }
 
   console.log(`Updating profile to super_admin...`);
-  
+
   // Wait a brief moment to ensure trigger has completed
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // Update the profile to set role = 'super_admin' and full_name
   const { data, error: updateError } = await supabaseAdmin
     .from('profiles')
-    .update({ 
+    .update({
       role: 'super_admin',
       full_name: fullName,
       display_name: 'Florlen Admin',
-      is_active: true
+      is_active: true,
     })
     .eq('id', user.id)
     .select();
