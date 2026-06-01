@@ -141,15 +141,15 @@ app.use((err, req, res, next) => {
  * ============================================
  */
 
-const PORT = process.env.PORT || 3001;
+const LOCAL_PORT = process.env.LOCAL_PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const server = app.listen(PORT, () => {
+const server = app.listen(LOCAL_PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║     Florlen Backend Server              ║
 ╠════════════════════════════════════════╣
-║ Port:       ${PORT.toString().padEnd(26)} ║
+║ Port:       ${LOCAL_PORT.toString().padEnd(26)} ║
 ║ Environment: ${NODE_ENV.padEnd(23)} ║
 ║ Supabase:   ${(process.env.SUPABASE_URL ? '✓ Connected' : '✗ Missing').padEnd(23)} ║
 ╚════════════════════════════════════════╝
