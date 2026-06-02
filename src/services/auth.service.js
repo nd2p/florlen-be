@@ -200,17 +200,29 @@ const requestPasswordReset = async (email) => {
  * @returns {object} { session }
  */
 const resetPassword = async (token, newPassword) => {
-  // Verify token and reset password
-  const { data, error } = await supabaseAnon.auth.verifyOtp({
+  let session;
+
+  // 1. Try standard OTP verification (implicit/standard flow)
+  const { data: otpData, error: otpError } = await supabaseAnon.auth.verifyOtp({
     token_hash: token,
     type: 'recovery',
   });
 
-  if (error) {
-    throw new Error(`Token verification failed: ${error.message}`);
+  if (otpError) {
+    // 2. If OTP verification fails, try exchanging it as a PKCE auth code
+    const { data: exchangeData, error: exchangeError } =
+      await supabaseAnon.auth.exchangeCodeForSession(token);
+    if (exchangeError) {
+      throw new Error(
+        `Token verification failed: ${otpError.message} (PKCE exchange also failed: ${exchangeError.message})`
+      );
+    }
+    session = exchangeData.session;
+  } else {
+    session = otpData.session;
   }
 
-  // Update password
+  // 3. Update the user's password using the active session
   const { error: updateError } = await supabaseAnon.auth.updateUser({
     password: newPassword,
   });
@@ -220,7 +232,7 @@ const resetPassword = async (token, newPassword) => {
   }
 
   return {
-    session: data.session,
+    session,
   };
 };
 

@@ -21,9 +21,19 @@ const app = express();
 app.use(helmet());
 
 // CORS Configuration
+// Determine allowed origins depending on environment
+const NODE_ENV = process.env.NODE_ENV || 'development';
+let allowedOrigins = [];
+
+if (NODE_ENV === 'development') {
+  allowedOrigins = ['http://localhost:3000'];
+} else {
+  allowedOrigins = process.env.FRONTEND_URL;
+}
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
@@ -142,7 +152,6 @@ app.use((err, req, res, next) => {
  */
 
 const LOCAL_PORT = process.env.LOCAL_PORT || 3001;
-const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const server = app.listen(LOCAL_PORT, () => {
   console.log(`
