@@ -23,7 +23,7 @@ app.use(helmet());
 // CORS Configuration
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'https://florlen.id.vn',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],

@@ -19,7 +19,7 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://api.florlen.com',
+        url: 'https://api.florlen.id.vn',
         description: 'Production server',
       },
     ],
