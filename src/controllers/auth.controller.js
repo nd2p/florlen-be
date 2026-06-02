@@ -301,7 +301,7 @@ const resetPassword = async (req, res) => {
  */
 const getGoogleOAuthUrl = async (req, res) => {
   try {
-    const redirectTo = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback`;
+    const redirectTo = `${process.env.FRONTEND_URL || 'https://florlen.id.vn'}/auth/callback`;
 
     const { data, error } = await supabaseAnon.auth.signInWithOAuth({
       provider: 'google',

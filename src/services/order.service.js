@@ -223,7 +223,7 @@ const createOrder = async ({ userId, cartId, paymentOption, addressId, note, vou
   });
 
   // 8. Create PayOS payment link
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://florlen.id.vn';
   const paymentLink = await createPaymentLink({
     orderCode,
     amount: depositAmount,
@@ -444,7 +444,7 @@ const payRemaining = async (userId, orderId) => {
   }
 
   const orderCode = generateOrderCode();
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://florlen.id.vn';
 
   // Create payment record for remaining balance
   const payment = await createPaymentRecord({
