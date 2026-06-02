@@ -24,12 +24,13 @@ const checkDailyLimit = async (userId) => {
   }
 
   if (count >= MAX_DESIGNS_PER_DAY) {
-    throw new Error(`Bạn đã đạt giới hạn tối đa ${MAX_DESIGNS_PER_DAY} bản thiết kế trong ngày hôm nay. Vui lòng quay lại vào ngày mai!`);
+    throw new Error(
+      `Bạn đã đạt giới hạn tối đa ${MAX_DESIGNS_PER_DAY} bản thiết kế trong ngày hôm nay. Vui lòng quay lại vào ngày mai!`
+    );
   }
 };
 
 const settingsService = require('./settings.service');
-
 
 /**
  * Calculates customization fee and sums up selected options dynamically.
@@ -87,53 +88,6 @@ const calculatePricing = async (productType, options = {}) => {
   };
 };
 
-/**
- * Queries the database for a pre-seeded active product of type 'ai_base' matching the category slug
- */
-const getBaseProduct = async (productType) => {
-  // 1. Try to find the exact pre-seeded base product
-  let searchSlug = productType;
-  if (productType === 'bag') searchSlug = 'plush';
-  else if (productType === 'hat') searchSlug = 'sweater';
-  else if (productType === 'mini_figure') searchSlug = 'keychain';
-
-  const { data: matched } = await supabaseAdmin
-    .from('products')
-    .select('id')
-    .eq('product_type', 'ai_base')
-    .is('created_by', null)
-    .ilike('slug', `%${searchSlug}%`)
-    .limit(1)
-    .maybeSingle();
-
-  if (matched) return matched;
-
-  // 2. Try the general seed slugs
-  const { data: seeded } = await supabaseAdmin
-    .from('products')
-    .select('id')
-    .eq('product_type', 'ai_base')
-    .is('created_by', null)
-    .in('slug', ['keychain-crochet', 'mini-plush', 'mini-sweater'])
-    .limit(1)
-    .maybeSingle();
-
-  if (seeded) return seeded;
-
-  // 3. Last fallback to ANY product of type 'ai_base'
-  const { data: fallback } = await supabaseAdmin
-    .from('products')
-    .select('id')
-    .eq('product_type', 'ai_base')
-    .is('created_by', null)
-    .limit(1)
-    .maybeSingle();
-
-  if (fallback) return fallback;
-
-  // Graceful fallback to null instead of throwing (as requested: no need for base products)
-  return null;
-};
 
 /**
  * List all saved draft designs for a user.
@@ -221,16 +175,12 @@ const saveDesignDraft = async (userId, designData) => {
   // 1. Verify daily limit
   await checkDailyLimit(userId);
 
-  // 2. Fetch appropriate pre-seeded base product
-  const baseProduct = await getBaseProduct(productType);
-  const productId = baseProduct ? baseProduct.id : null;
-
-  // 3. Insert design row
+  // 2. Insert design row (product_id is null initially, assigned when added to cart)
   const { data: saved, error: insertError } = await supabaseAdmin
     .from('designs')
     .insert({
       user_id: userId,
-      product_id: productId,
+      product_id: null,
       base: productType,
       prompt_text: customPrompt.substring(0, 500),
       selected_colors: options,
@@ -452,7 +402,8 @@ const finalizeExistingDesign = async (designId, userId) => {
       ('illustration' in currentDesign.selected_colors ||
         'color' in currentDesign.selected_colors) &&
       !hasAccessories;
-    const productType = currentDesign.base || (hasAccessories ? 'mini_figure' : isTui ? 'bag' : 'hat');
+    const productType =
+      currentDesign.base || (hasAccessories ? 'mini_figure' : isTui ? 'bag' : 'hat');
 
     const newProduct = await createCustomizedProduct(userId, {
       productType,
@@ -525,10 +476,11 @@ const deleteDesign = async (designId, userId) => {
 
   // 3. Compile file paths to remove from the Storage bucket
   const filesToDelete = [];
-  
+
   if (design.mockup_storage_path) {
     const pathParts = design.mockup_storage_path.split('/');
-    const pathInsideBucket = pathParts[0] === 'mockups' ? pathParts.slice(1).join('/') : design.mockup_storage_path;
+    const pathInsideBucket =
+      pathParts[0] === 'mockups' ? pathParts.slice(1).join('/') : design.mockup_storage_path;
     if (pathInsideBucket && pathInsideBucket !== 'default.jpg') {
       filesToDelete.push(pathInsideBucket);
     }
@@ -538,8 +490,13 @@ const deleteDesign = async (designId, userId) => {
     refImages.forEach((img) => {
       if (img.storage_path) {
         const pathParts = img.storage_path.split('/');
-        const pathInsideBucket = pathParts[0] === 'mockups' ? pathParts.slice(1).join('/') : img.storage_path;
-        if (pathInsideBucket && pathInsideBucket !== 'default.jpg' && !filesToDelete.includes(pathInsideBucket)) {
+        const pathInsideBucket =
+          pathParts[0] === 'mockups' ? pathParts.slice(1).join('/') : img.storage_path;
+        if (
+          pathInsideBucket &&
+          pathInsideBucket !== 'default.jpg' &&
+          !filesToDelete.includes(pathInsideBucket)
+        ) {
           filesToDelete.push(pathInsideBucket);
         }
       }
@@ -548,7 +505,9 @@ const deleteDesign = async (designId, userId) => {
 
   // 4. Perform Supabase Storage cleanup
   if (filesToDelete.length > 0) {
-    const { error: storageError } = await supabaseAdmin.storage.from('mockups').remove(filesToDelete);
+    const { error: storageError } = await supabaseAdmin.storage
+      .from('mockups')
+      .remove(filesToDelete);
     if (storageError) {
       console.error('Lỗi khi xóa ảnh khỏi Storage Bucket:', storageError.message);
     }
