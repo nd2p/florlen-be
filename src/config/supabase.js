@@ -19,6 +19,15 @@ const supabaseAdmin = createClient(
  * Anon client — tuân theo RLS, dùng khi muốn act as user
  * Có thể expose SUPABASE_ANON_KEY ra client (nó đã được bảo vệ bởi RLS)
  */
-const supabaseAnon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const supabaseAnon = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+);
 
 module.exports = { supabaseAdmin, supabaseAnon };

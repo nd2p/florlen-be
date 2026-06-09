@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { uploadFile } = require('./storage.service');
 const settingsService = require('./settings.service');
 
@@ -111,6 +113,27 @@ const parsePrompt = async (productType, options = {}, customPrompt = '') => {
     typeof options.color === 'string' && options.color.trim() ? options.color.trim() : '';
   const illustrationAllowed = Boolean(options.illustration);
 
+  // Load reference image
+  let referenceImagePart = null;
+  try {
+    const filename = productType === 'mini_figure' ? 'mini_figure.png' : `${productType}.png`;
+    const imagePath = path.join(__dirname, '..', 'assets', 'ai-references', filename);
+    if (fs.existsSync(imagePath)) {
+      const fileBuffer = fs.readFileSync(imagePath);
+      referenceImagePart = {
+        inlineData: {
+          mimeType: 'image/png',
+          data: fileBuffer.toString('base64'),
+        },
+      };
+      console.log(`[AI Service] Loaded reference image for ${productType} from: ${imagePath}`);
+    } else {
+      console.warn(`[AI Service] Reference image for ${productType} not found at: ${imagePath}`);
+    }
+  } catch (err) {
+    console.error(`[AI Service] Error loading reference image for ${productType}:`, err);
+  }
+
   const inputPrompt = `Input JSON: ${JSON.stringify({
     productType,
     selectedAccessories,
@@ -135,6 +158,7 @@ GLOBAL RULES:
 - Ignore noisy, unrelated, or contradictory phrases in rawPrompt.
 - If a requested detail is not allowed, discard it completely (do not paraphrase it).
 - optimizedPrompt must be detailed: 5-8 short sentences covering subject, shape/silhouette, stitch texture, color palette, allowed accessory details, lighting, background, composition.
+- Analyze the attached reference image of the base product structure. Make sure your optimizedPrompt describes a crochet product of the same category, inheriting the overall crochet stitch style, proportions, and construction form shown in the reference image.
 
 CASE RULES:
 1) productType = "mini_figure"
@@ -152,6 +176,8 @@ CASE RULES:
 `;
 
   const apiKey = await getApiKey();
+
+  console.log('API Key:', apiKey);
 
   if (!apiKey) {
     console.warn('[AI Service] GEMINI_API_KEY is not defined. Using local prompt composer.');
@@ -171,7 +197,7 @@ CASE RULES:
     const baseSubject =
       productType === 'bag'
         ? 'crochet bag'
-        : productType === 'hat'
+          : productType === 'hat'
         ? 'crochet hat'
         : 'crochet mini figure companion';
     const detailNote =
@@ -206,7 +232,10 @@ CASE RULES:
       body: JSON.stringify({
         contents: [
           {
-            parts: [{ text: inputPrompt }],
+            parts: [
+              ...(referenceImagePart ? [referenceImagePart] : []),
+              { text: inputPrompt }
+            ],
           },
         ],
         generationConfig: {
@@ -279,7 +308,7 @@ CASE RULES:
 };
 
 /**
- * Generates a mockup preview image by calling Imagen 4, or downloads a stunning mock placeholder
+ * Generates a mockup preview image by calling Pollinations AI generator, or downloads a stunning mock placeholder
  * from Unsplash in local development mode, and uploads it to Supabase Storage.
  */
 const generateMockup = async (optimizedPrompt, productType, designId) => {
@@ -290,10 +319,20 @@ const generateMockup = async (optimizedPrompt, productType, designId) => {
     const encodedPrompt = encodeURIComponent(
       optimizedPrompt + ', cute 3d crochet wool style, isolated solid white studio background'
     );
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=512&height=512&nologo=true&seed=${Date.now()}`;
+    const seed = Math.floor(Math.random() * 2147483647);
+    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=512&height=512&nologo=true&seed=${seed}`;
 
-    const imageResponse = await fetch(pollinationsUrl);
-    if (!imageResponse.ok) throw new Error('Pollinations AI request failed');
+    const apiKey = await settingsService.getSetting('pollinations_api_key', process.env.POLLINATIONS_API_KEY);
+    const headers = {};
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const imageResponse = await fetch(pollinationsUrl, { headers });
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      throw new Error(`Pollinations AI request failed with status ${imageResponse.status}: ${errorText}`);
+    }
 
     const buffer = Buffer.from(await imageResponse.arrayBuffer());
     const { publicUrl } = await uploadFile('mockups', filename, buffer, 'image/jpeg');

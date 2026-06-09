@@ -227,7 +227,7 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Refresh token is required' });
     }
 
-    await updatePasswordService(newPassword, refreshToken);
+    await updatePasswordService(req.user.id, newPassword);
 
     res.json({ message: 'Password changed successfully' });
   } catch (error) {

@@ -1,3 +1,4 @@
+const { createClient } = require('@supabase/supabase-js');
 const { supabaseAdmin, supabaseAnon } = require('../config/supabase');
 
 /**
@@ -153,21 +154,9 @@ const updateProfile = async (userId, updateData) => {
  * @param {string} refreshToken - needed to update auth
  * @returns {void}
  */
-const updatePassword = async (newPassword, refreshToken) => {
-  // Use anon client with refresh token to update password
-  const supabaseUser = supabaseAnon;
-
-  // First refresh session to get valid tokens
-  const { error: refreshError } = await supabaseUser.auth.refreshSession({
-    refresh_token: refreshToken,
-  });
-
-  if (refreshError) {
-    throw new Error(`Session refresh failed: ${refreshError.message}`);
-  }
-
-  // Update password
-  const { error } = await supabaseUser.auth.updateUser({
+const updatePassword = async (userId, newPassword) => {
+  // Use admin client to update password directly by user ID, avoiding session refresh issues
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     password: newPassword,
   });
 
@@ -200,10 +189,18 @@ const requestPasswordReset = async (email) => {
  * @returns {object} { session }
  */
 const resetPassword = async (token, newPassword) => {
+  // Create a transient supabase client for this request to avoid session state collision
+  const supabaseUser = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
   let session;
 
   // 1. Try standard OTP verification (implicit/standard flow)
-  const { data: otpData, error: otpError } = await supabaseAnon.auth.verifyOtp({
+  const { data: otpData, error: otpError } = await supabaseUser.auth.verifyOtp({
     token_hash: token,
     type: 'recovery',
   });
@@ -211,7 +208,7 @@ const resetPassword = async (token, newPassword) => {
   if (otpError) {
     // 2. If OTP verification fails, try exchanging it as a PKCE auth code
     const { data: exchangeData, error: exchangeError } =
-      await supabaseAnon.auth.exchangeCodeForSession(token);
+      await supabaseUser.auth.exchangeCodeForSession(token);
     if (exchangeError) {
       throw new Error(
         `Token verification failed: ${otpError.message} (PKCE exchange also failed: ${exchangeError.message})`
@@ -222,8 +219,11 @@ const resetPassword = async (token, newPassword) => {
     session = otpData.session;
   }
 
+  // Set the session on the transient client so updateUser knows the authorized user
+  await supabaseUser.auth.setSession(session);
+
   // 3. Update the user's password using the active session
-  const { error: updateError } = await supabaseAnon.auth.updateUser({
+  const { error: updateError } = await supabaseUser.auth.updateUser({
     password: newPassword,
   });
 
@@ -243,9 +243,22 @@ const resetPassword = async (token, newPassword) => {
  *
  * @returns {void}
  */
-const logout = async () => {
-  // Supabase sign out - invalidate the session
-  const supabaseUser = supabaseAnon;
+const logout = async (accessToken) => {
+  if (!accessToken) return;
+
+  // Create a transient supabase client with the user's access token to sign out securely
+  const supabaseUser = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+
   const { error } = await supabaseUser.auth.signOut();
 
   if (error) {
