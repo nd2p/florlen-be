@@ -56,6 +56,14 @@ app.use((req, res, next) => {
  * ============================================
  */
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Florlen API is running',
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -151,14 +159,14 @@ app.use((err, req, res, next) => {
  * ============================================
  */
 
-const LOCAL_PORT = process.env.LOCAL_PORT || 3001;
+const PORT = process.env.PORT || process.env.LOCAL_PORT || 3001;
 
-const server = app.listen(LOCAL_PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║     Florlen Backend Server              ║
 ╠════════════════════════════════════════╣
-║ Port:       ${LOCAL_PORT.toString().padEnd(26)} ║
+║ Port:       ${PORT.toString().padEnd(26)} ║
 ║ Environment: ${NODE_ENV.padEnd(23)} ║
 ║ Supabase:   ${(process.env.SUPABASE_URL ? '✓ Connected' : '✗ Missing').padEnd(23)} ║
 ╚════════════════════════════════════════╝
