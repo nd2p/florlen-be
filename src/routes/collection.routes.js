@@ -7,7 +7,7 @@ const {
   remove,
   syncProducts,
 } = require('../controllers/collection.controller');
-const { authenticate } = require('../middlewares/authenticate');
+const { authenticate, optionalAuthenticate } = require('../middlewares/authenticate');
 const { authorizeAdmin } = require('../middlewares/authorize');
 
 const router = express.Router();
@@ -35,7 +35,7 @@ const router = express.Router();
  *       200:
  *         description: List of collections
  */
-router.get('/', getCollections);
+router.get('/', optionalAuthenticate, getCollections);
 
 /**
  * @swagger
@@ -54,7 +54,7 @@ router.get('/', getCollections);
  *       404:
  *         description: Collection not found
  */
-router.get('/:id', getCollection);
+router.get('/:id', optionalAuthenticate, getCollection);
 
 /**
  * @swagger

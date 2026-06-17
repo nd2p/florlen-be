@@ -13,7 +13,9 @@ const {
 const getCollections = async (req, res) => {
   try {
     const { cursor, limit, type, is_featured, search, sort_by } = req.query;
-    const result = await listCollections({ cursor, limit, type, is_featured, search, sort_by });
+    const isAdmin = req.user && ['admin', 'super_admin'].includes(req.user.role);
+    const excludeAiBase = !isAdmin;
+    const result = await listCollections({ cursor, limit, type, is_featured, search, sort_by, excludeAiBase });
     res.json(result);
   } catch (error) {
     console.error('Get collections error:', error);
@@ -27,7 +29,9 @@ const getCollections = async (req, res) => {
 const getCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const collection = await getCollectionById(id);
+    const isAdmin = req.user && ['admin', 'super_admin'].includes(req.user.role);
+    const excludeAiBase = !isAdmin;
+    const collection = await getCollectionById(id, { excludeAiBase });
     if (!collection) return res.status(404).json({ message: 'Collection not found' });
     res.json({ collection });
   } catch (error) {

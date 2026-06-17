@@ -1,8 +1,8 @@
-# Florlen Backend Agent Guidelines
+# Backend Agent Guidelines
 
 ## Overview
 
-This document defines guidelines and requirements for AI agents when working with the Florlen backend API. All endpoint modifications must follow these rules to ensure consistency, documentation, and code quality.
+This document defines guidelines and requirements for AI agents when working with the backend API. All endpoint modifications must follow these rules to ensure consistency, documentation, and code quality.
 
 ---
 

@@ -51,6 +51,7 @@ const listCollections = async ({
   is_featured,
   search,
   sort_by = 'sort_order',
+  excludeAiBase,
 } = {}) => {
   let query = supabaseAdmin
     .from('collections')
@@ -60,7 +61,7 @@ const listCollections = async ({
       collection_products (
         product_id,
         sort_order,
-        products (id, sku, name, slug, base_price, product_images (url, alt_text, is_primary))
+        products (id, sku, name, slug, base_price, product_type, product_images (url, alt_text, is_primary))
       )
       `
     )
@@ -79,6 +80,16 @@ const listCollections = async ({
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
+  if (excludeAiBase && data) {
+    data.forEach((item) => {
+      if (item.collection_products) {
+        item.collection_products = item.collection_products.filter(
+          (cp) => cp.products && cp.products.product_type !== 'ai_base'
+        );
+      }
+    });
+  }
+
   const hasMore = data.length > limit;
   if (hasMore) data.pop();
   const nextCursor = hasMore ? data[data.length - 1].id : null;
@@ -86,7 +97,7 @@ const listCollections = async ({
   return { collections: data, hasMore, nextCursor };
 };
 
-const getCollectionById = async (id) => {
+const getCollectionById = async (id, { excludeAiBase } = {}) => {
   const { data, error } = await supabaseAdmin
     .from('collections')
     .select(
@@ -95,7 +106,7 @@ const getCollectionById = async (id) => {
       collection_products (
         product_id,
         sort_order,
-        products (id, sku, name, slug, base_price, product_images (url, alt_text, is_primary))
+        products (id, sku, name, slug, base_price, product_type, product_images (url, alt_text, is_primary))
       )
       `
     )
@@ -103,6 +114,13 @@ const getCollectionById = async (id) => {
     .single();
 
   if (error) throw new Error(error.message || 'Collection not found');
+
+  if (excludeAiBase && data && data.collection_products) {
+    data.collection_products = data.collection_products.filter(
+      (cp) => cp.products && cp.products.product_type !== 'ai_base'
+    );
+  }
+
   return data;
 };
 
