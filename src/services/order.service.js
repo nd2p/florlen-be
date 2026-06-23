@@ -436,8 +436,8 @@ const payRemaining = async (userId, orderId) => {
     .single();
 
   if (error || !order) throw new Error('Order not found');
-  if (order.status !== ORDER_STATUS.AWAITING_REMAINING_PAYMENT) {
-    throw new Error('Order is not awaiting remaining payment');
+  if (order.status === ORDER_STATUS.COMPLETED || order.status === ORDER_STATUS.CANCELLED) {
+    throw new Error('Order is completed or cancelled and cannot be paid');
   }
   if (order.remaining_amount <= 0) {
     throw new Error('No remaining amount to pay');
@@ -488,15 +488,37 @@ const payRemaining = async (userId, orderId) => {
 /**
  * Called by PayOS webhook when payment is confirmed.
  * Updates payment + order status, clears cart items.
+ *
+ * Race condition protection:
+ * Uses atomic CAS (Compare-And-Set) — updates payment status from
+ * 'pending' → 'processing' only if it is still 'pending'.
+ * If two webhooks arrive simultaneously, only one will claim the payment
+ * (count > 0). The other will see count = 0 and return idempotent immediately.
  */
 const confirmPayment = async (orderCode, amount, gatewayResponse) => {
-  // 1. Find payment by orderCode (stored as payment_intent_id)
-  const payment = await findPaymentByIntentId(orderCode);
+  // 1. Atomic claim: update status pending → processing WHERE status = 'pending'
+  //    This is a distributed lock: only one concurrent call can win this update.
+  const { data: claimedPayments, error: claimError } = await supabaseAdmin
+    .from('payments')
+    .update({ status: PAYMENT_STATUS.PROCESSING })
+    .eq('payment_intent_id', String(orderCode))
+    .eq('status', PAYMENT_STATUS.PENDING)
+    .select('id');
 
-  if (payment.status === PAYMENT_STATUS.SUCCEEDED) {
-    // Idempotent: already processed
+  if (claimError) {
+    console.error('[confirmPayment] Failed to claim payment lock:', claimError.message);
+    throw new Error(`Failed to claim payment: ${claimError.message}`);
+  }
+
+  if (!claimedPayments || claimedPayments.length === 0) {
+    // Either already PROCESSING (another concurrent call won the race)
+    // or already SUCCEEDED (idempotent). Either way, skip.
+    console.log(`[confirmPayment] Payment ${orderCode} already claimed or processed — skipping (idempotent).`);
     return { alreadyProcessed: true };
   }
+
+  // 2. Re-fetch the full payment record now that we own it
+  const payment = await findPaymentByIntentId(orderCode);
 
   let orderId = payment.order_id;
   let newStatus = ORDER_STATUS.CONFIRMED;
@@ -507,8 +529,13 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
     // Initial payment: order needs to be created now!
     const draftOrder = payment.gateway_response?.draftOrder;
     if (!draftOrder) {
-      console.error('Draft order not found for payment:', payment.id);
-      return { alreadyProcessed: false, error: 'Draft order not found' };
+      // Roll back payment claim so it can be retried
+      await supabaseAdmin
+        .from('payments')
+        .update({ status: PAYMENT_STATUS.FAILED })
+        .eq('id', payment.id);
+      console.error('[confirmPayment] Draft order not found for payment:', payment.id);
+      throw new Error('Draft order not found in payment record. Cannot create order.');
     }
 
     // Insert the order into orders table
@@ -541,8 +568,13 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
       .single();
 
     if (newOrderError || !newOrder) {
-      console.error('Failed to create order on payment confirmation:', newOrderError?.message);
-      return { alreadyProcessed: false, error: 'Failed to create order' };
+      // Roll back payment claim so the state is clear for investigation
+      await supabaseAdmin
+        .from('payments')
+        .update({ status: PAYMENT_STATUS.FAILED })
+        .eq('id', payment.id);
+      console.error('[confirmPayment] Failed to create order on payment confirmation:', newOrderError?.message);
+      throw new Error(`Failed to create order: ${newOrderError?.message || 'Unknown error'}`);
     }
 
     orderId = newOrder.id;
@@ -647,8 +679,8 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
       .single();
 
     if (orderError || !order) {
-      console.error('Order not found for payment:', orderId);
-      return { alreadyProcessed: false, error: 'Order not found' };
+      console.error('[confirmPayment] Order not found for payment:', orderId);
+      throw new Error(`Order ${orderId} not found when confirming remaining payment`);
     }
 
     newStatus = order.status;
@@ -657,7 +689,7 @@ const confirmPayment = async (orderCode, amount, gatewayResponse) => {
     if (payment.payment_type === PAYMENT_TYPE.REMAINING_BALANCE) {
       newPaymentStage = 'fully_paid';
       updates.remaining_paid_at = new Date().toISOString();
-      if (order.status === ORDER_STATUS.AWAITING_REMAINING_PAYMENT) {
+      if (order.status === 'awaiting_remaining_payment') {
         newStatus = ORDER_STATUS.READY_TO_SHIP;
       }
     }
